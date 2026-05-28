@@ -1,21 +1,43 @@
+# Node modules - will be reinstalled in Docker
 node_modules
+
+# Debug logs
 npm-debug.log
 yarn-error.log
 pnpm-debug.log
+
+# Git
 .git
 .gitignore
+
+# Environment files (lock files are needed)
 .env
 .env.local
 .env.*.local
+
+# OS
 .DS_Store
+
+# IDE
 .vscode
 .idea
+
+# Build artifacts
 dist
 build
 .next
 out
+
+# Logs
 *.log
 .manus-logs
+
+# Config files
 .prettierignore
 .prettierrc
 README.md
+
+# Keep lock files for reproducible builds
+# !pnpm-lock.yaml
+# !package-lock.json
+# !yarn.lock
