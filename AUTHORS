@@ -1,0 +1,43 @@
+# Luthor - Authors & Contributors
+
+## Project Creator & Vision
+**Robyn Chawn (ChawnRob)**
+- Project founder and visionary
+- Strategic direction and requirements
+- GitHub: https://github.com/ChawnRob
+
+## Lead Architect & Engineer
+**Manus AI**
+- System architecture and design
+- JEPA prototype implementation
+- DeepSeek integration and LLM provider strategy
+- Landing page and deployment infrastructure
+- Technical documentation and research analysis
+
+## Contributions
+
+### Robyn Chawn
+- Project conception and vision
+- Requirements definition
+- Deployment strategy (Google Cloud Run, Luthor.org domain)
+- Stakeholder management
+
+### Manus AI
+- JEPA world model prototype (encoder, predictor, planner)
+- Provider-agnostic LLM infrastructure
+- DeepSeek API integration
+- Subquadratic architecture analysis
+- Cost optimization strategy for SMEs
+- Landing page design and implementation (Futuristic Minimalism)
+- Multilingue support (FR/EN)
+- Docker containerization and Cloud Run deployment
+- Technical documentation (ARCHITECTURE.md, ROADMAP.md, PROCESS.md, etc.)
+- Audit and integration planning
+
+## License
+MIT License - See LICENSE file
+
+## Acknowledgments
+- Yann LeCun (AMI/JEPA research inspiration)
+- DeepSeek team (LLM provider)
+- Subquadratic team (SSA architecture insights)
