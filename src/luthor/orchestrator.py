@@ -61,13 +61,15 @@ class MCPOrchestrator:
         )
         return LLMInterface(config=config)
 
-    async def run(self, user_message: str, system_prompt: str | None = None) -> OrchestrationResult:
+    async def plan_tools(
+        self,
+        user_message: str,
+        system_prompt: str | None = None,
+    ) -> tuple[str | None, list[dict[str, Any]]]:
+        """Return LLM text (if any) and planned tool calls without executing them."""
         tools = self.registry.get_function_tools()
         if not tools:
-            return OrchestrationResult(
-                message="No MCP tools are enabled. Configure connectors in params.yaml and .env.",
-                used_tools=False,
-            )
+            return "No MCP tools are enabled. Configure connectors in params.yaml and .env.", []
 
         default_system = (
             "You are the LUTHOR agent orchestrator. "
@@ -79,9 +81,30 @@ class MCPOrchestrator:
             tools=tools,
             system_prompt=system_prompt or default_system,
         )
+        return completion.content, list(completion.tool_calls)
+
+    async def summarize_tool_results(
+        self,
+        user_message: str,
+        tool_results: list[ToolCallResult],
+    ) -> str:
+        summary_prompt = (
+            f"User request: {user_message}\n\n"
+            f"Tool results: {json.dumps([item.result for item in tool_results], ensure_ascii=False)}\n\n"
+            "Summarize the outcome for the user in concise French or English matching the request."
+        )
+        return self.llm.complete(summary_prompt)
+
+    async def run(self, user_message: str, system_prompt: str | None = None) -> OrchestrationResult:
+        content, planned_calls = await self.plan_tools(user_message, system_prompt=system_prompt)
+        if not planned_calls:
+            return OrchestrationResult(
+                message=content or "No response generated.",
+                used_tools=False,
+            )
 
         tool_results: list[ToolCallResult] = []
-        for call in completion.tool_calls:
+        for call in planned_calls:
             arguments = call.get("arguments", {})
             if isinstance(arguments, str):
                 arguments = json.loads(arguments)
@@ -94,22 +117,11 @@ class MCPOrchestrator:
                 )
             )
 
-        if tool_results:
-            summary_prompt = (
-                f"User request: {user_message}\n\n"
-                f"Tool results: {json.dumps([item.result for item in tool_results], ensure_ascii=False)}\n\n"
-                "Summarize the outcome for the user in concise French or English matching the request."
-            )
-            final_message = self.llm.complete(summary_prompt)
-            return OrchestrationResult(
-                message=final_message,
-                tool_calls=tool_results,
-                used_tools=True,
-            )
-
+        final_message = await self.summarize_tool_results(user_message, tool_results)
         return OrchestrationResult(
-            message=completion.content or "No response generated.",
-            used_tools=False,
+            message=final_message,
+            tool_calls=tool_results,
+            used_tools=True,
         )
 
 

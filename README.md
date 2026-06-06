@@ -1,5 +1,7 @@
 # Luthor : Un Modèle de Monde Agentique (JEPA)
 
+[![Demo](https://img.shields.io/badge/Demo-LUTHOR%20Workflow-blue)](http://localhost:8080/demo-ui)
+
 Ce dépôt contient **Luthor**, un prototype de Modèle de Monde Agentique (Agentic World Model) inspiré des principes de l'Intelligence Machine Autonome (AMI) de Yann LeCun. Il démontre comment un agent peut apprendre une représentation abstraite du monde, prédire les conséquences de ses actions et planifier pour atteindre des objectifs, sans recourir à des modèles génératifs complexes.
 
 ## Concepts clés
@@ -58,6 +60,7 @@ Prérequis : Python 3.10+, pip. Pour l'API Docker : Docker et Docker Compose.
 | `make active` | Boucle d'apprentissage actif (uncertainty sampling) |
 | `make test` | Lance la suite de tests (24 tests) |
 | `make run-api` | Démarre l'API FastAPI sur `http://localhost:8080` |
+| `python3 scripts/demo_full_workflow.py` | Démo MCP complète (Mistral + outils) — voir `docs/DEMO.md` |
 | `make docker-up` | Lance PostgreSQL + ChromaDB + API via Docker Compose |
 | `make docker-down` | Arrête les services Docker |
 | `make docker-logs` | Affiche les logs du conteneur API |

@@ -20,6 +20,7 @@ from luthor.api.metrics import (
 from luthor.api.export_service import LogExportService, get_export_token
 from luthor.api.routes import (
     ab_router,
+    demo_router,
     export_router,
     label_router,
     mcp_router,
@@ -75,18 +76,27 @@ def create_app() -> FastAPI:
     application.include_router(label_router)
     application.include_router(mcp_router)
     application.include_router(tools_router)
+    application.include_router(demo_router)
 
     @application.get("/metrics", include_in_schema=False)
     def metrics():
         return metrics_response()
 
-    label_ui_path = Path(__file__).resolve().parents[3] / "web" / "label_ui.html"
+    web_dir = Path(__file__).resolve().parents[3] / "web"
+    label_ui_path = web_dir / "label_ui.html"
+    demo_ui_path = web_dir / "demo.html"
 
     @application.get("/label-ui")
     def label_ui() -> FileResponse:
         if not label_ui_path.exists():
             raise HTTPException(status_code=404, detail="label_ui.html not found")
         return FileResponse(label_ui_path)
+
+    @application.get("/demo-ui")
+    def demo_ui() -> FileResponse:
+        if not demo_ui_path.exists():
+            raise HTTPException(status_code=404, detail="demo.html not found")
+        return FileResponse(demo_ui_path)
 
     @application.get("/health", response_model=HealthResponse)
     def health(request: Request) -> HealthResponse:

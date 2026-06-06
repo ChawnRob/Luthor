@@ -224,3 +224,24 @@ class BookingResponse(BaseModel):
 
 class AvailabilityResponse(BaseModel):
     result: dict[str, Any]
+
+
+class DemoFullRequest(BaseModel):
+    model_config = {"populate_by_name": True}
+
+    message: str = Field(..., min_length=1)
+    async_mode: bool = Field(default=False, alias="async")
+
+
+class DemoFullResponse(BaseModel):
+    task_id: str | None = None
+    status: str
+    warnings: list[str] = Field(default_factory=list)
+    summary: dict[str, Any] | None = None
+
+
+class DemoTaskResponse(BaseModel):
+    task_id: str
+    status: str
+    result: dict[str, Any] | None = None
+    error: str | None = None

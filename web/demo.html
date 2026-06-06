@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUTHOR — Démo workflow complet</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 960px; line-height: 1.5; }
+    h1 { margin-bottom: 0.25rem; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1.25rem; margin: 1rem 0; }
+    textarea { width: 100%; min-height: 110px; font-size: 1rem; padding: 0.75rem; }
+    button { padding: 0.7rem 1.2rem; font-size: 1rem; cursor: pointer; }
+    pre { background: #f6f8fa; padding: 1rem; overflow-x: auto; border-radius: 8px; }
+    .status { font-weight: 600; margin-top: 1rem; }
+    .warn { color: #9a6700; }
+    .err { color: #c62828; }
+    .ok { color: #2e7d32; }
+    .images { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+    .images img { max-width: 320px; border-radius: 8px; border: 1px solid #ddd; }
+    .step { border-left: 3px solid #4f46e5; padding-left: 0.75rem; margin: 0.75rem 0; }
+  </style>
+</head>
+<body>
+  <h1>LUTHOR — Démo bout en bout</h1>
+  <p>Orchestration Mistral + outils MCP (Whisper, yt-dlp, Fooocus, Cal.com, …)</p>
+
+  <div class="card">
+    <label for="message"><strong>Message</strong></label>
+    <textarea id="message">Synthèse du dernier podcast sur l'IA, génère une image et crée un rendez-vous</textarea>
+    <p>
+      <button id="run-demo">Lancer la démo</button>
+      <label><input type="checkbox" id="async-mode" /> Mode asynchrone</label>
+    </p>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Résultats</h2>
+    <div id="warnings"></div>
+    <div id="summary"></div>
+    <div id="steps"></div>
+    <div class="images" id="images"></div>
+    <pre id="raw" hidden></pre>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const summaryEl = document.getElementById('summary');
+    const stepsEl = document.getElementById('steps');
+    const warningsEl = document.getElementById('warnings');
+    const imagesEl = document.getElementById('images');
+    const rawEl = document.getElementById('raw');
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = 'status ' + (cls || '');
+    }
+
+    function renderSummary(payload) {
+      warningsEl.innerHTML = '';
+      stepsEl.innerHTML = '';
+      imagesEl.innerHTML = '';
+      summaryEl.innerHTML = '';
+      rawEl.hidden = true;
+
+      if (!payload) return;
+
+      if (payload.warnings && payload.warnings.length) {
+        warningsEl.innerHTML = '<p class="warn"><strong>Avertissements</strong></p><ul>' +
+          payload.warnings.map(w => `<li>${w}</li>`).join('') + '</ul>';
+      }
+
+      const summary = payload.summary || payload.result || payload;
+      if (summary.final_summary) {
+        summaryEl.innerHTML = `<p><strong>Résumé</strong></p><p>${summary.final_summary}</p>`;
+      }
+
+      if (summary.steps) {
+        stepsEl.innerHTML = '<h3>Étapes</h3>' + summary.steps.map(step => `
+          <div class="step">
+            <strong>${step.index}. ${step.tool_name}</strong>
+            — ${step.success ? '<span class="ok">succès</span>' : '<span class="err">échec</span>'}
+            (${step.duration_seconds?.toFixed?.(2) ?? step.duration_seconds}s)
+            ${step.warning ? `<div class="warn">${step.warning}</div>` : ''}
+            ${step.error ? `<div class="err">${step.error}</div>` : ''}
+          </div>
+        `).join('');
+      }
+
+      (summary.steps || []).forEach(step => {
+        (step.artifact_paths || []).forEach(path => {
+          if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+            const img = document.createElement('img');
+            img.alt = step.tool_name;
+            img.src = '/' + path.replace(/^\.?\//, '');
+            imagesEl.appendChild(img);
+          }
+        });
+      });
+
+      rawEl.hidden = false;
+      rawEl.textContent = JSON.stringify(payload, null, 2);
+    }
+
+    async function pollTask(taskId) {
+      for (let i = 0; i < 120; i++) {
+        const response = await fetch(`/demo/tasks/${taskId}`);
+        const payload = await response.json();
+        if (payload.status === 'completed') {
+          setStatus('Démo terminée', 'ok');
+          renderSummary({ summary: payload.result, warnings: payload.result?.warnings || [] });
+          return;
+        }
+        if (payload.status === 'failed') {
+          setStatus('Échec: ' + (payload.error || 'inconnu'), 'err');
+          return;
+        }
+        setStatus(`Tâche ${taskId} — ${payload.status}…`);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      setStatus('Timeout en attente de la tâche', 'err');
+    }
+
+    document.getElementById('run-demo').addEventListener('click', async () => {
+      const message = document.getElementById('message').value.trim();
+      const asyncMode = document.getElementById('async-mode').checked;
+      if (!message) {
+        setStatus('Message requis', 'err');
+        return;
+      }
+
+      setStatus('Exécution en cours…');
+      summaryEl.innerHTML = '';
+      stepsEl.innerHTML = '';
+      warningsEl.innerHTML = '';
+      imagesEl.innerHTML = '';
+
+      try {
+        const response = await fetch('/demo/full', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, async: asyncMode }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          setStatus(payload.detail || 'Erreur API', 'err');
+          return;
+        }
+        if (asyncMode && payload.task_id) {
+          setStatus(`Tâche lancée: ${payload.task_id}`);
+          renderSummary(payload);
+          await pollTask(payload.task_id);
+          return;
+        }
+        setStatus('Démo terminée', 'ok');
+        renderSummary(payload);
+      } catch (err) {
+        setStatus('Erreur réseau: ' + err.message, 'err');
+      }
+    });
+  </script>
+</body>
+</html>
