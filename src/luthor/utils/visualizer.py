@@ -1,9 +1,13 @@
+import os
+
 import matplotlib.pyplot as plt
 import torch
 
+
 class Visualizer:
-    def __init__(self, goal):
+    def __init__(self, goal, output_dir: str = "."):
         self.goal = goal
+        self.output_dir = output_dir
         self.history = []
         self.imagined_trajectories = []
 
@@ -44,7 +48,7 @@ class Visualizer:
         plt.xlim(-6, 7)
         plt.ylim(-6, 7)
         
-        filename = f"luthor_step_{step_name}.png"
+        filename = os.path.join(self.output_dir, f"luthor_step_{step_name}.png")
         plt.savefig(filename)
         plt.close()
         return filename

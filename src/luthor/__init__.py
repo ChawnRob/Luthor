@@ -12,11 +12,11 @@ Default Configuration:
 
 Quick Start:
     from luthor import get_deepseek, LuthorConfig
-    
+
     # Get DeepSeek integration
     deepseek = get_deepseek()
     response = deepseek.complete("Analyze this world state...")
-    
+
     # Or use provider-agnostic interface
     from luthor import LLMInterface
     llm = LLMInterface()
@@ -28,8 +28,8 @@ __author__ = "Manus AI"
 
 # Core JEPA components
 from luthor.jepa_model.encoder import Encoder
-from luthor.jepa_model.predictor import LatentPredictor
-from luthor.jepa_model.planner import MPCPlanner
+from luthor.jepa_model.predictor import Predictor
+from luthor.jepa_model.planner import Planner
 from luthor.jepa_model.world_model import WorldModel
 
 # LLM Provider infrastructure
@@ -63,14 +63,14 @@ from luthor.config import (
 from luthor.environment.simple_env import SimpleEnvironment
 
 # Utilities
-from luthor.utils.cost_function import CostFunction
+from luthor.utils.cost_function import CostFunction, euclidean_distance_cost
 from luthor.utils.visualizer import Visualizer
 
 __all__ = [
     # JEPA Components
     "Encoder",
-    "LatentPredictor",
-    "MPCPlanner",
+    "Predictor",
+    "Planner",
     "WorldModel",
     # LLM Providers
     "LLMProvider",
@@ -94,5 +94,6 @@ __all__ = [
     "SimpleEnvironment",
     # Utilities
     "CostFunction",
+    "euclidean_distance_cost",
     "Visualizer",
 ]
