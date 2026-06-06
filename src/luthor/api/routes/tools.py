@@ -4,12 +4,21 @@ from fastapi import APIRouter, HTTPException, Request
 
 from luthor.api.schemas import (
     AppFlowyToolRequest,
+    AvailabilityResponse,
+    BookingRequest,
+    BookingResponse,
+    DownloadRequest,
+    DownloadResponse,
+    GenerateImageRequest,
+    GenerateImageResponse,
     N8nTriggerRequest,
     N8nTriggerResponse,
     N8nWorkflowsResponse,
     PenpotToolRequest,
     PlausibleToolRequest,
     ToolActionResponse,
+    TranscribeRequest,
+    TranscribeResponse,
 )
 
 router = APIRouter(tags=["tools"])
@@ -130,3 +139,111 @@ async def plausible_tool_action(
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Plausible request failed: {exc}") from exc
     return ToolActionResponse(result=result)
+
+
+@router.post("/tools/transcribe", response_model=TranscribeResponse)
+async def transcribe_audio(payload: TranscribeRequest, request: Request) -> TranscribeResponse:
+    registry = request.app.state.mcp_registry
+    if not payload.audio_url and not payload.audio_b64:
+        raise HTTPException(status_code=400, detail="audio_url or audio_b64 is required")
+    try:
+        if payload.audio_b64:
+            result = await registry.whisper.transcribe_base64(
+                audio_b64=payload.audio_b64,
+                language=payload.language,
+            )
+        else:
+            result = await registry.whisper.transcribe_audio(
+                audio_path_or_url=payload.audio_url or "",
+                language=payload.language,
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Transcription failed: {exc}") from exc
+    return TranscribeResponse(
+        text=result["text"],
+        language=result.get("language"),
+        model=result["model"],
+    )
+
+
+@router.post("/tools/download", response_model=DownloadResponse)
+async def download_media(payload: DownloadRequest, request: Request) -> DownloadResponse:
+    registry = request.app.state.mcp_registry
+    try:
+        if payload.action == "extract_info":
+            result = await registry.ytdlp.extract_info(payload.url)
+        else:
+            result = await registry.ytdlp.download_media(
+                url=payload.url,
+                format=payload.format,
+                user_id=payload.user_id,
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Download failed: {exc}") from exc
+    return DownloadResponse(result=result)
+
+
+@router.post("/tools/generate_image", response_model=GenerateImageResponse)
+async def generate_image(payload: GenerateImageRequest, request: Request) -> GenerateImageResponse:
+    registry = request.app.state.mcp_registry
+    try:
+        result = await registry.fooocus.generate_image(
+            prompt=payload.prompt,
+            negative_prompt=payload.negative_prompt,
+            style=payload.style,
+            aspect_ratio=payload.aspect_ratio,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Image generation failed: {exc}") from exc
+    return GenerateImageResponse(
+        image_url=result.get("image_url"),
+        image_b64=result.get("image_b64"),
+        prompt=result["prompt"],
+        aspect_ratio=result["aspect_ratio"],
+    )
+
+
+@router.post("/tools/booking", response_model=BookingResponse)
+async def create_booking(payload: BookingRequest, request: Request) -> BookingResponse:
+    registry = request.app.state.mcp_registry
+    try:
+        result = await registry.calcom.create_booking(
+            event_type_id=payload.event_type_id,
+            start_time=payload.start_time,
+            end_time=payload.end_time,
+            name=payload.name,
+            email=payload.email,
+            metadata=payload.metadata,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Booking failed: {exc}") from exc
+    return BookingResponse(result=result)
+
+
+@router.get("/tools/availability", response_model=AvailabilityResponse)
+async def get_availability(
+    request: Request,
+    date: str,
+    event_type_id: str | None = None,
+) -> AvailabilityResponse:
+    registry = request.app.state.mcp_registry
+    try:
+        result = await registry.calcom.get_available_slots(
+            event_type_id=event_type_id,
+            date=date,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Availability lookup failed: {exc}") from exc
+    return AvailabilityResponse(result=result)

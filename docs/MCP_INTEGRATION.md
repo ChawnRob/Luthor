@@ -32,6 +32,15 @@ mcp:
 
 3. Set `MISTRAL_API_KEY` for orchestration.
 
+### Media & scheduling connectors
+
+| Connector | Env vars | Notes |
+|-----------|----------|-------|
+| Whisper | `WHISPER_MODEL_SIZE`, `WHISPER_DEVICE` | Local CPU/CUDA transcription |
+| yt-dlp | `YTDLP_DOWNLOAD_DIR`, `YTDLP_MAX_DOWNLOADS_PER_USER` | Domain allowlist in `params.yaml` |
+| Fooocus | `FOOOCUS_API_URL`, `FOOOCUS_API_KEY` | Requires external Fooocus API |
+| Cal.com | `CALCOM_API_URL`, `CALCOM_API_KEY`, `CALCOM_EVENT_TYPE_ID` | Self-hosted or cloud |
+
 ## API endpoints
 
 | Method | Path | Description |
@@ -43,6 +52,11 @@ mcp:
 | POST | `/tools/penpot` | Design actions (`create_file`, `add_shape`, `export_image`) |
 | POST | `/tools/appflowy` | Memory actions (`create_page`, `append_to_page`, `search_pages`) |
 | POST | `/tools/plausible` | Analytics (`track_event`, `get_stats`) |
+| POST | `/tools/transcribe` | Whisper transcription (`audio_url` or `audio_b64`) |
+| POST | `/tools/download` | yt-dlp download or `extract_info` |
+| POST | `/tools/generate_image` | Fooocus text-to-image |
+| POST | `/tools/booking` | Cal.com create booking |
+| GET | `/tools/availability` | Cal.com available slots |
 
 ## Example
 
@@ -55,5 +69,5 @@ curl -X POST http://localhost:8080/mcp/orchestrate \
 ## Tests
 
 ```bash
-python3 -m unittest tests.test_mcp_connectors -v
+python3 -m unittest tests.test_mcp_connectors tests.test_mcp_media_connectors -v
 ```

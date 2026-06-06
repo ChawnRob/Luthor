@@ -162,6 +162,103 @@
         },
         "required": ["period"]
       }
+    },
+    {
+      "name": "whisper_transcribe",
+      "type": "mcp",
+      "connector": "whisper",
+      "description": "Transcribe local audio file path or URL to text using faster-whisper.",
+      "endpoint": "/tools/transcribe",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "audio_url": { "type": "string" },
+          "audio_path": { "type": "string" },
+          "audio_b64": { "type": "string" },
+          "language": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "ytdlp_download_media",
+      "type": "mcp",
+      "connector": "ytdlp",
+      "description": "Download media from an allowed video platform URL.",
+      "endpoint": "/tools/download",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" },
+          "format": { "type": "string", "enum": ["mp3", "best", "mp4"] },
+          "user_id": { "type": "string" }
+        },
+        "required": ["url"]
+      }
+    },
+    {
+      "name": "ytdlp_extract_info",
+      "type": "mcp",
+      "connector": "ytdlp",
+      "description": "Extract video metadata (title, duration, description) without downloading.",
+      "endpoint": "/tools/download",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" }
+        },
+        "required": ["url"]
+      }
+    },
+    {
+      "name": "fooocus_generate_image",
+      "type": "mcp",
+      "connector": "fooocus",
+      "description": "Generate an image from a text prompt using Fooocus.",
+      "endpoint": "/tools/generate_image",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": { "type": "string" },
+          "negative_prompt": { "type": "string" },
+          "style": { "type": "string" },
+          "aspect_ratio": { "type": "string" }
+        },
+        "required": ["prompt"]
+      }
+    },
+    {
+      "name": "calcom_create_booking",
+      "type": "mcp",
+      "connector": "calcom",
+      "description": "Create a Cal.com appointment booking.",
+      "endpoint": "/tools/booking",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_type_id": { "type": "string" },
+          "start_time": { "type": "string" },
+          "end_time": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "metadata": { "type": "object" }
+        },
+        "required": ["start_time", "end_time", "name", "email"]
+      }
+    },
+    {
+      "name": "calcom_get_available_slots",
+      "type": "mcp",
+      "connector": "calcom",
+      "description": "List available Cal.com booking slots for a date.",
+      "endpoint": "/tools/availability",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_type_id": { "type": "string" },
+          "date": { "type": "string" }
+        },
+        "required": ["date"]
+      }
     }
   ]
 }

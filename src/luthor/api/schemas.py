@@ -170,3 +170,57 @@ class MCPOrchestrateResponse(BaseModel):
     message: str
     used_tools: bool
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class TranscribeRequest(BaseModel):
+    audio_url: str | None = None
+    audio_b64: str | None = None
+    language: str | None = None
+
+
+class TranscribeResponse(BaseModel):
+    text: str
+    language: str | None = None
+    model: str
+
+
+class DownloadRequest(BaseModel):
+    url: str
+    format: str = "best"
+    user_id: str = "default"
+    action: str = Field(default="download", description="download | extract_info")
+
+
+class DownloadResponse(BaseModel):
+    result: dict[str, Any]
+
+
+class GenerateImageRequest(BaseModel):
+    prompt: str
+    negative_prompt: str | None = None
+    style: str = ""
+    aspect_ratio: str = "1024x1024"
+
+
+class GenerateImageResponse(BaseModel):
+    image_url: str | None = None
+    image_b64: str | None = None
+    prompt: str
+    aspect_ratio: str
+
+
+class BookingRequest(BaseModel):
+    event_type_id: str | None = None
+    start_time: str
+    end_time: str
+    name: str
+    email: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class BookingResponse(BaseModel):
+    result: dict[str, Any]
+
+
+class AvailabilityResponse(BaseModel):
+    result: dict[str, Any]

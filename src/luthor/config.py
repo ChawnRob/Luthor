@@ -8,7 +8,7 @@ Loads configuration from environment variables and provides sensible defaults.
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -138,6 +138,14 @@ class MCPConnectorConfig:
     api_key: str = ""
     token: str = ""
     site_id: str = ""
+    model: str = "tiny"
+    device: str = "cpu"
+    allowed_domains: list[str] = field(
+        default_factory=lambda: ["youtube.com", "youtu.be", "vimeo.com"]
+    )
+    download_dir: str = "./data/downloads"
+    max_downloads_per_user: int = 10
+    event_type_id: str = ""
 
 
 @dataclass
@@ -150,6 +158,14 @@ class MCPConfig:
             "penpot": MCPConnectorConfig(),
             "appflowy": MCPConnectorConfig(),
             "plausible": MCPConnectorConfig(),
+            "whisper": MCPConnectorConfig(enabled=False, model="tiny", device="cpu"),
+            "ytdlp": MCPConnectorConfig(
+                enabled=False,
+                download_dir="./data/downloads",
+                max_downloads_per_user=10,
+            ),
+            "fooocus": MCPConnectorConfig(),
+            "calcom": MCPConnectorConfig(),
         }
     )
 
@@ -206,6 +222,14 @@ class LuthorConfig:
                 api_key=str(raw.get("api_key", "")),
                 token=str(raw.get("token", "")),
                 site_id=str(raw.get("site_id", "")),
+                model=str(raw.get("model", "tiny")),
+                device=str(raw.get("device", "cpu")),
+                allowed_domains=list(
+                    raw.get("allowed_domains", ["youtube.com", "youtu.be", "vimeo.com"])
+                ),
+                download_dir=str(raw.get("download_dir", "./data/downloads")),
+                max_downloads_per_user=int(raw.get("max_downloads_per_user", 10)),
+                event_type_id=str(raw.get("event_type_id", "")),
             )
 
         environment = EnvironmentConfig(
@@ -246,6 +270,10 @@ class LuthorConfig:
                     "penpot": _connector("penpot"),
                     "appflowy": _connector("appflowy"),
                     "plausible": _connector("plausible"),
+                    "whisper": _connector("whisper"),
+                    "ytdlp": _connector("ytdlp"),
+                    "fooocus": _connector("fooocus"),
+                    "calcom": _connector("calcom"),
                 },
             ),
             prompt_version=str(params.get("prompt_version", "v1")),
@@ -413,12 +441,34 @@ class LuthorConfig:
         }
 
 
+def _parse_connector_from_params(raw: dict[str, Any]) -> MCPConnectorConfig:
+    return MCPConnectorConfig(
+        enabled=bool(raw.get("enabled", False)),
+        url=str(raw.get("url", "")),
+        api_key=str(raw.get("api_key", "")),
+        token=str(raw.get("token", "")),
+        site_id=str(raw.get("site_id", "")),
+        model=str(raw.get("model", "tiny")),
+        device=str(raw.get("device", "cpu")),
+        allowed_domains=list(
+            raw.get("allowed_domains", ["youtube.com", "youtu.be", "vimeo.com"])
+        ),
+        download_dir=str(raw.get("download_dir", "./data/downloads")),
+        max_downloads_per_user=int(raw.get("max_downloads_per_user", 10)),
+        event_type_id=str(raw.get("event_type_id", "")),
+    )
+
+
 def _apply_mcp_env_overrides(config: LuthorConfig) -> None:
     env_flags = {
         "n8n": "LUTHOR_MCP_N8N_ENABLED",
         "penpot": "LUTHOR_MCP_PENPOT_ENABLED",
         "appflowy": "LUTHOR_MCP_APPFLOWY_ENABLED",
         "plausible": "LUTHOR_MCP_PLAUSIBLE_ENABLED",
+        "whisper": "LUTHOR_MCP_WHISPER_ENABLED",
+        "ytdlp": "LUTHOR_MCP_YTDLP_ENABLED",
+        "fooocus": "LUTHOR_MCP_FOOOCUS_ENABLED",
+        "calcom": "LUTHOR_MCP_CALCOM_ENABLED",
     }
     for name, env_key in env_flags.items():
         if os.getenv(env_key) is not None:
@@ -465,6 +515,27 @@ def _mcp_config_from_env() -> MCPConfig:
                 url_env="PLAUSIBLE_API_URL",
                 token_env="PLAUSIBLE_TOKEN",
                 site_env="PLAUSIBLE_SITE_ID",
+            ),
+            "whisper": MCPConnectorConfig(
+                enabled=os.getenv("LUTHOR_MCP_WHISPER_ENABLED", "false").lower() == "true",
+                model=os.getenv("WHISPER_MODEL_SIZE", "tiny"),
+                device=os.getenv("WHISPER_DEVICE", "cpu"),
+            ),
+            "ytdlp": MCPConnectorConfig(
+                enabled=os.getenv("LUTHOR_MCP_YTDLP_ENABLED", "false").lower() == "true",
+                download_dir=os.getenv("YTDLP_DOWNLOAD_DIR", "./data/downloads"),
+                max_downloads_per_user=int(os.getenv("YTDLP_MAX_DOWNLOADS_PER_USER", "10")),
+            ),
+            "fooocus": _connector(
+                "fooocus",
+                url_env="FOOOCUS_API_URL",
+                key_env="FOOOCUS_API_KEY",
+            ),
+            "calcom": MCPConnectorConfig(
+                enabled=os.getenv("LUTHOR_MCP_CALCOM_ENABLED", "false").lower() == "true",
+                url=os.getenv("CALCOM_API_URL", ""),
+                api_key=os.getenv("CALCOM_API_KEY", ""),
+                event_type_id=os.getenv("CALCOM_EVENT_TYPE_ID", ""),
             ),
         },
     )
@@ -550,18 +621,11 @@ def _merge_params_into_config(config: LuthorConfig, params: dict) -> LuthorConfi
         tools_cfg = mcp_cfg.get("tools", {})
         for name, raw in tools_cfg.items():
             if name not in config.mcp.tools:
+                config.mcp.tools[name] = _parse_connector_from_params(raw)
                 continue
             connector = config.mcp.tools[name]
-            if "enabled" in raw:
-                connector.enabled = bool(raw["enabled"])
-            if "url" in raw:
-                connector.url = str(raw["url"])
-            if "api_key" in raw:
-                connector.api_key = str(raw["api_key"])
-            if "token" in raw:
-                connector.token = str(raw["token"])
-            if "site_id" in raw:
-                connector.site_id = str(raw["site_id"])
+            parsed = _parse_connector_from_params({**connector.__dict__, **raw})
+            config.mcp.tools[name] = parsed
 
     return config
 

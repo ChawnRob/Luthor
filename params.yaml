@@ -112,3 +112,18 @@ mcp:
     plausible:
       enabled: false
       url: ""
+    whisper:
+      enabled: true
+      model: tiny
+      device: cpu
+    ytdlp:
+      enabled: true
+      allowed_domains: ["youtube.com", "youtu.be", "vimeo.com"]
+      download_dir: "./data/downloads"
+      max_downloads_per_user: 10
+    fooocus:
+      enabled: false
+      url: http://localhost:8888
+    calcom:
+      enabled: false
+      url: http://localhost:3000

@@ -4,11 +4,15 @@ import json
 from pathlib import Path
 from typing import Any
 
-from luthor.config import MCPConfig, MCPConnectorConfig, get_config
+from luthor.config import MCPConfig, get_config
 from luthor.mcp.appflowy_connector import AppFlowyConnector
+from luthor.mcp.calcom_connector import CalComConnector
+from luthor.mcp.fooocus_connector import FooocusConnector
 from luthor.mcp.n8n_connector import N8nConnector
 from luthor.mcp.penpot_connector import PenpotConnector
 from luthor.mcp.plausible_connector import PlausibleConnector
+from luthor.mcp.whisper_connector import WhisperConnector
+from luthor.mcp.ytdlp_connector import YtDlpConnector
 
 _TOOLS_PATH = Path(__file__).resolve().parent / "mcp_tools.json"
 _registry: MCPRegistry | None = None
@@ -24,6 +28,10 @@ class MCPRegistry:
         penpot_cfg = self.config.tools["penpot"]
         appflowy_cfg = self.config.tools["appflowy"]
         plausible_cfg = self.config.tools["plausible"]
+        whisper_cfg = self.config.tools["whisper"]
+        ytdlp_cfg = self.config.tools["ytdlp"]
+        fooocus_cfg = self.config.tools["fooocus"]
+        calcom_cfg = self.config.tools["calcom"]
 
         self.n8n = N8nConnector(
             api_url=n8n_cfg.url or None,
@@ -41,6 +49,20 @@ class MCPRegistry:
             api_url=plausible_cfg.url or None,
             site_id=plausible_cfg.site_id or None,
             token=plausible_cfg.token or None,
+        )
+        self.whisper = WhisperConnector(
+            model_size=whisper_cfg.model,
+            device=whisper_cfg.device,
+        )
+        self.ytdlp = YtDlpConnector(config=ytdlp_cfg)
+        self.fooocus = FooocusConnector(
+            api_url=fooocus_cfg.url or None,
+            api_key=fooocus_cfg.api_key or None,
+        )
+        self.calcom = CalComConnector(
+            api_url=calcom_cfg.url or None,
+            api_key=calcom_cfg.api_key or None,
+            event_type_id=calcom_cfg.event_type_id or None,
         )
 
     @staticmethod
@@ -84,6 +106,14 @@ class MCPRegistry:
             enabled.add("appflowy")
         if self.config.tools["plausible"].enabled and self.plausible.enabled:
             enabled.add("plausible")
+        if self.config.tools["whisper"].enabled and self.whisper.enabled:
+            enabled.add("whisper")
+        if self.config.tools["ytdlp"].enabled and self.ytdlp.enabled:
+            enabled.add("ytdlp")
+        if self.config.tools["fooocus"].enabled and self.fooocus.enabled:
+            enabled.add("fooocus")
+        if self.config.tools["calcom"].enabled and self.calcom.enabled:
+            enabled.add("calcom")
         return enabled
 
     def connector_status(self) -> dict[str, bool]:
@@ -92,6 +122,10 @@ class MCPRegistry:
             "penpot": self.config.tools["penpot"].enabled and self.penpot.enabled,
             "appflowy": self.config.tools["appflowy"].enabled and self.appflowy.enabled,
             "plausible": self.config.tools["plausible"].enabled and self.plausible.enabled,
+            "whisper": self.config.tools["whisper"].enabled and self.whisper.enabled,
+            "ytdlp": self.config.tools["ytdlp"].enabled and self.ytdlp.enabled,
+            "fooocus": self.config.tools["fooocus"].enabled and self.fooocus.enabled,
+            "calcom": self.config.tools["calcom"].enabled and self.calcom.enabled,
         }
 
     async def call_tool(self, tool_name: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -168,6 +202,61 @@ class MCPRegistry:
             result = await self.plausible.get_stats(
                 period=str(params.get("period", "7d")),
                 metrics=params.get("metrics"),
+            )
+            return {"result": result}
+
+        if tool_name == "whisper_transcribe":
+            if params.get("audio_b64"):
+                result = await self.whisper.transcribe_base64(
+                    audio_b64=str(params["audio_b64"]),
+                    language=params.get("language"),
+                )
+            else:
+                source = params.get("audio_url") or params.get("audio_path")
+                if not source:
+                    raise ValueError("audio_url, audio_path, or audio_b64 is required")
+                result = await self.whisper.transcribe_audio(
+                    audio_path_or_url=str(source),
+                    language=params.get("language"),
+                )
+            return {"result": result}
+
+        if tool_name == "ytdlp_download_media":
+            result = await self.ytdlp.download_media(
+                url=str(params["url"]),
+                format=params.get("format"),
+                user_id=str(params.get("user_id", "default")),
+            )
+            return {"result": result}
+
+        if tool_name == "ytdlp_extract_info":
+            result = await self.ytdlp.extract_info(url=str(params["url"]))
+            return {"result": result}
+
+        if tool_name == "fooocus_generate_image":
+            result = await self.fooocus.generate_image(
+                prompt=str(params["prompt"]),
+                negative_prompt=params.get("negative_prompt"),
+                style=str(params.get("style", "")),
+                aspect_ratio=str(params.get("aspect_ratio", "1024x1024")),
+            )
+            return {"result": result}
+
+        if tool_name == "calcom_create_booking":
+            result = await self.calcom.create_booking(
+                event_type_id=params.get("event_type_id"),
+                start_time=str(params["start_time"]),
+                end_time=str(params["end_time"]),
+                name=str(params["name"]),
+                email=str(params["email"]),
+                metadata=params.get("metadata"),
+            )
+            return {"result": result}
+
+        if tool_name == "calcom_get_available_slots":
+            result = await self.calcom.get_available_slots(
+                event_type_id=params.get("event_type_id"),
+                date=str(params["date"]),
             )
             return {"result": result}
 
