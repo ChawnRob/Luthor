@@ -139,14 +139,23 @@ class DvcPipelineTests(unittest.TestCase):
         env = os.environ.copy()
         env["PYTHONPATH"] = str(workdir / "src")
 
-        init = subprocess.run(
-            [dvc_bin, "init", "--no-scm"],
+        git_init = subprocess.run(
+            ["git", "init"],
             cwd=workdir,
-            env=env,
             capture_output=True,
             text=True,
         )
-        self.assertEqual(init.returncode, 0, init.stderr)
+        self.assertEqual(git_init.returncode, 0, git_init.stderr)
+
+        if not (workdir / ".dvc").exists():
+            init = subprocess.run(
+                [dvc_bin, "init"],
+                cwd=workdir,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(init.returncode, 0, init.stderr)
 
         repro = subprocess.run(
             [dvc_bin, "repro"],

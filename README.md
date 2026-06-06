@@ -1,76 +1,197 @@
 # Luthor : Un Modèle de Monde Agentique (JEPA)
 
-Ce dépôt contient **Luthor**, un prototype de Modèle de Monde Agentique (Agentic World Model) inspiré des principes de l'Intelligence Machine Autonome (AMI) de Yann LeCun. Il vise à démontrer comment un agent peut apprendre une représentation abstraite du monde, prédire les conséquences de ses actions et planifier pour atteindre des objectifs, sans recourir à des modèles génératifs complexes.
+Ce dépôt contient **Luthor**, un prototype de Modèle de Monde Agentique (Agentic World Model) inspiré des principes de l'Intelligence Machine Autonome (AMI) de Yann LeCun. Il démontre comment un agent peut apprendre une représentation abstraite du monde, prédire les conséquences de ses actions et planifier pour atteindre des objectifs, sans recourir à des modèles génératifs complexes.
 
-## Concepts Clés Implémentés
+## Concepts clés
 
--   **JEPA (Joint Embedding Predictive Architecture)** : Le cœur du modèle du monde, apprenant à prédire l'état futur dans un **espace latent abstrait** plutôt que de reconstruire des observations brutes.
--   **Non-Génératif** : Focalisation sur les aspects prédictibles et sémantiquement importants du monde, rendant le modèle plus robuste face à l'incertitude.
--   **MPC (Model Predictive Control)** : Un planificateur qui utilise le modèle du monde pour simuler et évaluer différentes séquences d'actions afin de choisir la meilleure pour atteindre un objectif.
--   **Visualisation de la Planification** : Des outils graphiques pour observer comment Luthor 
-explore mentalement les futurs possibles.
+- **JEPA (Joint Embedding Predictive Architecture)** : prédiction d'états futurs dans un espace latent abstrait.
+- **MPC (Model Predictive Control)** : planification par échantillonnage de trajectoires.
+- **Apprentissage actif** : sélection par incertitude (variance du prédicteur) avec oracle dummy.
+- **GridWorld** : environnement grille 2D avec obstacles, but et bruit optionnel.
+- **API FastAPI** : endpoints `/embed`, `/predict`, `/active_learn` avec stockage PostgreSQL + ChromaDB.
+- **Pipeline DVC** : entraînement reproductible versionné via `params.yaml`.
 
-## Structure du Projet
+## Structure du projet
 
 ```
 Luthor/
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── PROCESS.md
-│   └── ROADMAP.md
-├── src/
-│   └── luthor/
-│       ├── __init__.py
-│       ├── demo.py
-│       ├── environment/
-│       │   └── simple_env.py
-│       ├── jepa_model/
-│       │   ├── encoder.py
-│       │   ├── __init__.py
-│       │   ├── planner.py
-│       │   ├── predictor.py
-│       │   └── world_model.py
-│       └── utils/
-│           ├── cost_function.py
-│           └── visualizer.py
-├── .gitignore
-├── README.md
-└── requirements.txt
+├── dvc.yaml                 # Pipeline DVC (prepare_data → train)
+├── params.yaml              # Hyperparamètres du pipeline
+├── Makefile                 # Commandes make (demo, active, test, API, DVC…)
+├── docker-compose.yml       # PostgreSQL + ChromaDB + API
+├── data/raw/                # GridWorld versionné (sortie DVC)
+├── docs/                    # Documentation technique
+├── src/luthor/
+│   ├── demo.py              # Démo JEPA + planification MPC
+│   ├── active_demo.py       # Boucle d'apprentissage actif
+│   ├── api/                 # Service FastAPI
+│   ├── active_learning/     # Oracle, sampler, boucle AL
+│   ├── environment/         # GridWorld (+ alias SimpleEnvironment)
+│   ├── jepa_model/          # Encoder, Predictor, WorldModel, Planner
+│   ├── pipeline/            # Scripts DVC (prepare_data, train)
+│   ├── training/            # Étapes d'entraînement JEPA
+│   └── utils/               # Métriques, logging, visualisation
+├── tests/                   # Suite unittest (24 tests)
+└── website/                 # Landing page React (FR/EN)
 ```
-
--   **`docs/`** : Contient la documentation technique détaillée du projet.
-    -   `ARCHITECTURE.md` : Description de l'architecture de Luthor.
-    -   `PROCESS.md` : Détail du processus de développement.
-    -   `ROADMAP.md` : Feuille de route pour les évolutions futures.
-    -   `COST_STRATEGY_SME.md` : Stratégie pour réduire les coûts de l'IA pour les PME.
-    -   `SUBQUADRATIC_ANALYSIS.md` : Analyse technique de l'architecture Subquadratic.
--   **`src/luthor/`** : Le code source principal du projet.
-    -   `jepa_model/` : Implémentation de l'encodeur, du prédicteur, du modèle du monde et du planificateur JEPA.
-    -   `environment/` : Environnement de simulation simple.
-    -   `utils/` : Fonctions utilitaires et module de visualisation.
-    -   `demo.py` : Script principal pour l'apprentissage et la planification.
--   **`.gitignore`** : Fichier de configuration pour Git.
--   **`README.md`** : Ce fichier.
--   **`requirements.txt`** : Liste des dépendances Python.
 
 ## Installation
 
-Pour installer les dépendances nécessaires, utilisez pip :
-
 ```bash
-pip install -r requirements.txt
+# Cloner le dépôt
+git clone https://github.com/ChawnRob/Luthor.git
+cd Luthor
+
+# Installer les dépendances Python
+make install
+# ou : pip install -r requirements.txt
 ```
 
-## Utilisation
+Prérequis : Python 3.10+, pip. Pour l'API Docker : Docker et Docker Compose.
 
-Pour exécuter la démonstration de Luthor, qui inclut l'apprentissage du modèle du monde et la planification avec visualisation :
+## Commandes Make
+
+| Commande | Description |
+|----------|-------------|
+| `make install` | Installe les dépendances (`requirements.txt`) |
+| `make demo` | JEPA training + planification MPC sur GridWorld |
+| `make active` | Boucle d'apprentissage actif (uncertainty sampling) |
+| `make test` | Lance la suite de tests (24 tests) |
+| `make run-api` | Démarre l'API FastAPI sur `http://localhost:8080` |
+| `make docker-up` | Lance PostgreSQL + ChromaDB + API via Docker Compose |
+| `make docker-down` | Arrête les services Docker |
+| `make docker-logs` | Affiche les logs du conteneur API |
+| `make dvc-repro` | Exécute le pipeline DVC complet |
+
+### Démo interactive
 
 ```bash
-python src/luthor/demo.py
+make demo
 ```
 
-Les visualisations de la planification seront sauvegardées sous forme d'images PNG dans le répertoire courant.
+Génère des visualisations PNG dans `outputs/` et un log JSON `outputs/demo_run.json` contenant `final_loss`, `success_rate` et `steps_per_episode`.
 
-## À Propos
+### Apprentissage actif
 
-Ce projet a été développé par **Manus AI** en tant que prototype d'Agentic World Model, explorant les concepts d'Intelligence Machine Autonome (AMI) et de Joint Embedding Predictive Architecture (JEPA) de Yann LeCun. Il sert de base pour la recherche et le développement de systèmes d'IA plus autonomes et intelligents.
+```bash
+make active
+```
+
+Produit `outputs/active_demo_run.json` avec les métriques d'évaluation.
+
+### Variables d'environnement (optionnel)
+
+Les hyperparamètres peuvent être surchargés via des variables `LUTHOR_*` (voir `src/luthor/config.py`) :
+
+```bash
+LUTHOR_ENCODER_LATENT_DIM=16 LUTHOR_PLANNER_ITERATIONS=50 make demo
+LUTHOR_EVAL_EPISODES=10 make active
+```
+
+## API FastAPI
+
+### Démarrage
+
+```bash
+# Option 1 : stack complète (PostgreSQL + ChromaDB + API)
+make docker-up
+
+# Option 2 : API seule (nécessite Postgres:5432 et ChromaDB:8001)
+make run-api
+```
+
+Documentation interactive : [http://localhost:8080/docs](http://localhost:8080/docs)
+
+### Endpoints
+
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `GET` | `/health` | État API, PostgreSQL, ChromaDB |
+| `POST` | `/embed` | Encode une observation → vecteur latent (stocké dans ChromaDB) |
+| `POST` | `/predict` | Prédit le latent suivant + incertitude (MC dropout) |
+| `POST` | `/active_learn` | Lance des rounds d'apprentissage actif |
+
+### Exemples curl
+
+```bash
+# Encoder une observation
+curl -X POST http://localhost:8080/embed \
+  -H 'Content-Type: application/json' \
+  -d '{"observation": [1.0, 2.0]}'
+
+# Prédire l'état latent suivant
+curl -X POST http://localhost:8080/predict \
+  -H 'Content-Type: application/json' \
+  -d '{"observation": [0.5, -1.0], "action": [0.2, 0.3]}'
+
+# Lancer l'apprentissage actif
+curl -X POST http://localhost:8080/active_learn \
+  -H 'Content-Type: application/json' \
+  -d '{"num_rounds": 3, "pool_size": 16, "query_batch_size": 4}'
+```
+
+### Configuration stockage
+
+| Variable | Défaut |
+|----------|--------|
+| `LUTHOR_POSTGRES_URL` | `postgresql://luthor:luthor@localhost:5432/luthor` |
+| `LUTHOR_CHROMA_HOST` | `localhost` |
+| `LUTHOR_CHROMA_PORT` | `8001` |
+
+## Pipeline DVC
+
+Le pipeline DVC assure un entraînement reproductible et versionné.
+
+### Stages
+
+1. **`prepare_data`** — génère `data/raw/gridworld.json` (GridWorld versionné) depuis `params.yaml`
+2. **`train`** — entraîne JEPA + apprentissage actif, exporte `metrics.json`
+
+### Utilisation
+
+```bash
+# Modifier les hyperparamètres
+vim params.yaml
+
+# Exécuter le pipeline complet
+make dvc-repro
+```
+
+### Sortie `metrics.json`
+
+```json
+{
+  "final_loss": 0.12,
+  "success_rate": 45.0,
+  "steps_per_episode": [10, 8, 50, 12, 6]
+}
+```
+
+| Champ | Description |
+|-------|-------------|
+| `final_loss` | Perte moyenne du dernier round d'apprentissage actif |
+| `success_rate` | % d'épisodes atteignant le but en ≤ `max_steps` |
+| `steps_per_episode` | Nombre de steps par épisode d'évaluation |
+
+### Hyperparamètres (`params.yaml`)
+
+Sections principales : `gridworld`, `encoder`, `predictor`, `planner`, `active_learning`, `eval`, `seed`.
+
+## Tests
+
+```bash
+make test
+```
+
+Couvre : imports package, JEPA config, GridWorld, métriques, logging, API, pipeline DVC (incluant `dvc repro` end-to-end).
+
+## Documentation
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Architecture AMI / JEPA
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — Feuille de route
+- [`docs/PROCESS.md`](docs/PROCESS.md) — Historique de développement
+- [`docs/COST_STRATEGY_SME.md`](docs/COST_STRATEGY_SME.md) — Stratégie coûts PME
+
+## À propos
+
+Projet fondé par **Robyn Chawn (ChawnRob)** — architecture et implémentation par **Manus AI**. Inspiré des travaux de Yann LeCun sur l'AMI et la JEPA. Voir [`AUTHORS`](AUTHORS) pour les contributeurs.
