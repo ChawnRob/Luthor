@@ -80,6 +80,8 @@ class LuthorPackageTests(unittest.TestCase):
             output = stdout.getvalue()
             self.assertIn("Phase 1", output)
             self.assertIn("Phase 2", output)
+            self.assertIn("success_rate", output)
+            self.assertTrue(os.path.exists(os.path.join(tmpdir, "demo_run.json")))
             self.assertTrue(any(name.startswith("luthor_step_") for name in os.listdir(tmpdir)))
 
 

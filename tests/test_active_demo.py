@@ -51,8 +51,10 @@ class ActiveLearningTests(unittest.TestCase):
         import torch
 
         from luthor.active_learning.oracle import DummyOracle
+        from luthor.environment.gridworld import GridWorld
 
-        oracle = DummyOracle()
+        env = GridWorld(2, 2, noise_std=0.0, grid_size=6, obstacles=[(3, 3)], goal=[5.0, 5.0])
+        oracle = DummyOracle(env=env)
         obs = torch.tensor([1.0, 2.0])
         action = torch.tensor([0.5, -0.5])
         next_obs = oracle.query(obs, action)
@@ -71,6 +73,8 @@ class ActiveLearningTests(unittest.TestCase):
         output = stdout.getvalue()
         self.assertIn("Active Learning", output)
         self.assertIn("Active learning complete", output)
+        self.assertIn("success_rate", output)
+        self.assertTrue(os.path.exists(os.path.join("/tmp/luthor-test-outputs", "active_demo_run.json")))
 
 
 if __name__ == "__main__":

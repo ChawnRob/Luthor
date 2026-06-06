@@ -6,7 +6,7 @@ import torch.optim as optim
 from luthor.active_learning.oracle import DummyOracle
 from luthor.active_learning.sampler import UncertaintySampler
 from luthor.config import ActiveLearningConfig, LuthorConfig
-from luthor.environment.simple_env import SimpleEnvironment
+from luthor.environment.gridworld import GridWorld
 from luthor.jepa_model.world_model import WorldModel
 from luthor.training.jepa_step import jepa_train_step
 
@@ -34,7 +34,7 @@ class ActiveLearningLoop:
         config: LuthorConfig,
         world_model: WorldModel | None = None,
         optimizer: optim.Optimizer | None = None,
-        env: SimpleEnvironment | None = None,
+        env: GridWorld | None = None,
         oracle: DummyOracle | None = None,
     ):
         self.config = config
@@ -42,7 +42,7 @@ class ActiveLearningLoop:
         self.input_dim = self.al_config.input_dim
         self.action_dim = self.al_config.action_dim
 
-        self.env = env or SimpleEnvironment(self.input_dim, self.action_dim)
+        self.env = env or GridWorld(self.input_dim, self.action_dim, noise_std=0.0)
         self.world_model = world_model or WorldModel(
             self.input_dim,
             self.action_dim,
@@ -54,7 +54,7 @@ class ActiveLearningLoop:
             self.world_model.parameters(),
             lr=config.planner.learning_rate,
         )
-        self.oracle = oracle or DummyOracle(noise_std=self.env.noise_std)
+        self.oracle = oracle or DummyOracle(env=self.env)
         self.sampler = UncertaintySampler(self.world_model, self.al_config)
 
     def build_pool(self) -> list[tuple[torch.Tensor, torch.Tensor]]:

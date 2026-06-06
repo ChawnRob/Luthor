@@ -64,6 +64,7 @@ from luthor.config import (
 )
 
 # Environment
+from luthor.environment.gridworld import GridWorld
 from luthor.environment.simple_env import SimpleEnvironment
 
 # Utilities
@@ -100,6 +101,7 @@ __all__ = [
     "get_config",
     "reset_config",
     # Environment
+    "GridWorld",
     "SimpleEnvironment",
     # Utilities
     "CostFunction",

@@ -8,10 +8,12 @@ import torch
 import torch.optim as optim
 
 from luthor.config import get_config
-from luthor.environment.simple_env import SimpleEnvironment
+from luthor.environment.gridworld import GridWorld
 from luthor.jepa_model.planner import Planner
 from luthor.jepa_model.world_model import WorldModel
 from luthor.utils.cost_function import euclidean_distance_cost
+from luthor.utils.logging import build_run_log, write_run_log
+from luthor.utils.metrics import compute_success_rate
 from luthor.utils.visualizer import Visualizer
 
 
@@ -25,10 +27,11 @@ def main():
     num_samples = config.planner.num_samples
     learning_rate = config.planner.learning_rate
     num_episodes = config.planner.num_iterations
+    eval_episodes = int(os.getenv("LUTHOR_EVAL_EPISODES", "5"))
 
     os.makedirs(config.visualization.output_dir, exist_ok=True)
 
-    env = SimpleEnvironment(input_dim, action_dim)
+    env = GridWorld(input_dim, action_dim, noise_std=0.1)
     world_model = WorldModel(
         input_dim,
         action_dim,
@@ -40,9 +43,10 @@ def main():
     planner = Planner(world_model, action_dim, horizon, num_samples, euclidean_distance_cost)
 
     print("--- Phase 1: Apprentissage du Modèle du Monde (Luthor) ---")
+    final_loss = 0.0
     for episode in range(num_episodes):
         obs = env.reset()
-        total_loss = 0
+        total_loss = 0.0
         for _ in range(10):
             action = torch.rand(action_dim) * 2 - 1
             next_obs = env.step(action)
@@ -59,11 +63,12 @@ def main():
             total_loss += loss.item()
             obs = next_obs
 
+        final_loss = total_loss / 10
         if (episode + 1) % 20 == 0 or num_episodes <= 5:
-            print(f"Épisode {episode + 1}/{num_episodes}, Perte: {total_loss / 10:.6f}")
+            print(f"Épisode {episode + 1}/{num_episodes}, Perte: {final_loss:.6f}")
 
     print("\n--- Phase 2: Planification Agentique vers un But ---")
-    goal = torch.tensor([5.0, 5.0])
+    goal = env.goal.clone()
     current_obs = env.reset()
 
     viz = Visualizer(goal, output_dir=config.visualization.output_dir)
@@ -72,8 +77,9 @@ def main():
     print(f"Départ: {current_obs.tolist()}")
     print(f"Objectif: {goal.tolist()}")
 
-    planning_steps = min(15, max(3, horizon))
-    for step in range(planning_steps):
+    planning_steps = min(env.max_steps, max(3, horizon))
+    demo_steps_per_episode: list[int] = []
+    for step in range(1, planning_steps + 1):
         action, imagined = planner.plan(current_obs, goal)
 
         imagined_2d_trajectories = []
@@ -82,21 +88,53 @@ def main():
         viz.add_imagined_trajectories(imagined_2d_trajectories)
 
         if config.visualization.save_plots:
-            viz.plot(f"step_{step + 1}")
+            viz.plot(f"step_{step}")
 
         next_obs = env.step(action)
         viz.add_real_step(next_obs)
 
-        dist = torch.norm(next_obs - goal).item()
-        print(f"Étape {step + 1}: Position {next_obs.tolist()}, Distance au but: {dist:.4f}")
+        dist = env.distance_to_goal(next_obs)
+        print(f"Étape {step}: Position {next_obs.tolist()}, Distance au but: {dist:.4f}")
 
         current_obs = next_obs
-        if dist < 0.5:
+        if env.is_at_goal(next_obs):
             print("But atteint !")
+            demo_steps_per_episode.append(step)
             break
+    else:
+        demo_steps_per_episode.append(planning_steps)
+
+    print("\n--- Phase 3: Évaluation (success_rate) ---")
+    evaluation = compute_success_rate(env, planner, num_episodes=eval_episodes, max_steps=env.max_steps)
+    print(f"success_rate={evaluation.success_rate:.2f}%")
+
+    hyperparameters = {
+        "latent_dim": latent_dim,
+        "horizon": horizon,
+        "num_samples": num_samples,
+        "learning_rate": learning_rate,
+        "num_episodes": num_episodes,
+        "eval_episodes": eval_episodes,
+        "grid_size": env.grid_size,
+        "max_steps": env.max_steps,
+        "noise_std": env.noise_std,
+        "goal": goal.tolist(),
+    }
+    log_payload = build_run_log(
+        run_type="demo",
+        hyperparameters=hyperparameters,
+        final_loss=final_loss,
+        success_rate=evaluation.success_rate,
+        steps_per_episode=evaluation.steps_per_episode,
+    )
+    log_path = write_run_log(
+        os.path.join(config.visualization.output_dir, "demo_run.json"),
+        log_payload,
+    )
+    print(f"Run log écrit dans {log_path}")
 
     if config.visualization.save_plots:
-        print(f"\nVisualisations générées dans {config.visualization.output_dir}.")
+        print(f"Visualisations générées dans {config.visualization.output_dir}.")
 
 
 if __name__ == "__main__":
