@@ -61,6 +61,7 @@ Prérequis : Python 3.10+, pip. Pour l'API Docker : Docker et Docker Compose.
 | `make test` | Lance la suite de tests (24 tests) |
 | `make run-api` | Démarre l'API FastAPI sur `http://localhost:8080` |
 | `python3 scripts/demo_full_workflow.py` | Démo MCP complète (Mistral + outils) — voir `docs/DEMO.md` |
+| `./scripts/deploy_prod.sh` | Déploiement VPS production (UE) — voir `docs/DEPLOY_PROD.md` |
 | `make docker-up` | Lance PostgreSQL + ChromaDB + API via Docker Compose |
 | `make docker-down` | Arrête les services Docker |
 | `make docker-logs` | Affiche les logs du conteneur API |
