@@ -62,6 +62,13 @@ MINIMAL_PARAMS = {
     },
     "logging": {"level": "INFO"},
     "eval": {"episodes": 2, "train_steps_per_episode": 3},
+    "memory": {
+        "use_context_compression": False,
+        "history_length": 5,
+        "gru_hidden_dim": 16,
+        "gru_num_layers": 1,
+        "compress_source": "observation",
+    },
 }
 
 

@@ -23,6 +23,8 @@ def main():
         "Uncertainty sampling via predictor variance + dummy oracle "
         f"({config.active_learning.num_rounds} rounds)"
     )
+    if config.memory.use_context_compression:
+        print(f"Context compression enabled (history={config.memory.history_length})")
 
     env = GridWorld(
         config.active_learning.input_dim,
@@ -43,7 +45,14 @@ def main():
         config.planner.num_samples,
         euclidean_distance_cost,
     )
-    evaluation = compute_success_rate(env, planner, num_episodes=eval_episodes, max_steps=env.max_steps)
+    evaluation = compute_success_rate(
+        env,
+        planner,
+        num_episodes=eval_episodes,
+        max_steps=env.max_steps,
+        world_model=loop.world_model,
+        history_length=config.memory.history_length,
+    )
     print(f"success_rate={evaluation.success_rate:.2f}%")
 
     hyperparameters = {
@@ -57,6 +66,8 @@ def main():
         "grid_size": env.grid_size,
         "max_steps": env.max_steps,
         "goal": env.goal.tolist(),
+        "use_context_compression": config.memory.use_context_compression,
+        "history_length": config.memory.history_length,
     }
     log_payload = build_run_log(
         run_type="active_demo",

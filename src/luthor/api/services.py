@@ -23,6 +23,7 @@ class JEPAService:
             self.action_dim,
             encoder_config=self.config.encoder,
             predictor_config=self.config.predictor,
+            memory_config=self.config.memory,
             latent_dim=self.config.encoder.latent_dim,
         )
         self.world_model.eval()
@@ -46,7 +47,7 @@ class JEPAService:
     def embed(self, observation: list[float]) -> tuple[str, list[float]]:
         obs = self._to_tensor(observation, self.input_dim, "observation")
         with torch.no_grad():
-            latent = self.world_model.encoder(obs)
+            latent = self.world_model.encode(obs)
         embedding_id = str(uuid.uuid4())
         return embedding_id, latent.detach().cpu().tolist()
 
@@ -61,7 +62,7 @@ class JEPAService:
         samples = mc_samples or self.config.active_learning.mc_samples
 
         with torch.no_grad():
-            latent = self.world_model.encoder(obs)
+            latent = self.world_model.encode(obs)
             mean, variance = self.world_model.predictor.predict_with_uncertainty(
                 latent,
                 act,

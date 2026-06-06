@@ -25,6 +25,10 @@ stages:
       - src/luthor/pipeline/params.py
       - src/luthor/active_learning/loop.py
       - src/luthor/jepa_model/world_model.py
+      - src/luthor/jepa_model/encoder.py
+      - src/luthor/jepa_model/predictor.py
+      - src/luthor/memory/context_compressor.py
+      - src/luthor/training/context_session.py
       - src/luthor/utils/metrics.py
     params:
       - params.yaml:
@@ -34,5 +38,6 @@ stages:
           - planner
           - active_learning
           - eval
+          - memory
     outs:
       - metrics.json

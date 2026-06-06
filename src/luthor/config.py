@@ -67,6 +67,16 @@ class ActiveLearningConfig:
 
 
 @dataclass
+class MemoryConfig:
+    """Context compression (GRU memory) configuration."""
+    use_context_compression: bool = False
+    history_length: int = 8
+    gru_hidden_dim: int = 64
+    gru_num_layers: int = 1
+    compress_source: str = "observation"
+
+
+@dataclass
 class LuthorConfig:
     """Main Luthor configuration."""
     encoder: EncoderConfig
@@ -75,12 +85,15 @@ class LuthorConfig:
     visualization: VisualizationConfig
     logging: LoggingConfig
     active_learning: ActiveLearningConfig
+    memory: MemoryConfig
     debug: bool = False
 
     @staticmethod
     def from_params(params: dict) -> "LuthorConfig":
         visualization = params.get("visualization", {})
         logging_cfg = params.get("logging", {})
+
+        memory_cfg = params.get("memory", {})
 
         return LuthorConfig(
             encoder=EncoderConfig(**params["encoder"]),
@@ -89,6 +102,7 @@ class LuthorConfig:
             visualization=VisualizationConfig(**visualization),
             logging=LoggingConfig(**logging_cfg),
             active_learning=ActiveLearningConfig(**params["active_learning"]),
+            memory=MemoryConfig(**memory_cfg),
             debug=params.get("debug", False),
         )
 
@@ -137,6 +151,16 @@ class LuthorConfig:
                 input_dim=int(os.getenv("LUTHOR_AL_INPUT_DIM", "2")),
                 action_dim=int(os.getenv("LUTHOR_AL_ACTION_DIM", "2")),
             ),
+            memory=MemoryConfig(
+                use_context_compression=os.getenv(
+                    "LUTHOR_USE_CONTEXT_COMPRESSION", "false"
+                ).lower()
+                == "true",
+                history_length=int(os.getenv("LUTHOR_HISTORY_LENGTH", "8")),
+                gru_hidden_dim=int(os.getenv("LUTHOR_GRU_HIDDEN_DIM", "64")),
+                gru_num_layers=int(os.getenv("LUTHOR_GRU_NUM_LAYERS", "1")),
+                compress_source=os.getenv("LUTHOR_COMPRESS_SOURCE", "observation"),
+            ),
             debug=os.getenv("DEBUG", "false").lower() == "true",
         )
 
@@ -180,6 +204,13 @@ class LuthorConfig:
                 "train_steps_per_round": self.active_learning.train_steps_per_round,
                 "input_dim": self.active_learning.input_dim,
                 "action_dim": self.active_learning.action_dim,
+            },
+            "memory": {
+                "use_context_compression": self.memory.use_context_compression,
+                "history_length": self.memory.history_length,
+                "gru_hidden_dim": self.memory.gru_hidden_dim,
+                "gru_num_layers": self.memory.gru_num_layers,
+                "compress_source": self.memory.compress_source,
             },
             "debug": self.debug,
         }

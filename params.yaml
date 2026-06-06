@@ -55,3 +55,10 @@ logging:
 eval:
   episodes: 5
   train_steps_per_episode: 10
+
+memory:
+  use_context_compression: true
+  history_length: 8
+  gru_hidden_dim: 64
+  gru_num_layers: 1
+  compress_source: observation

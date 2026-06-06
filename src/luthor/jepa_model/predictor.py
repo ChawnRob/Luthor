@@ -10,14 +10,20 @@ class Predictor(nn.Module):
         latent_dim: int,
         action_dim: int,
         predictor_config: PredictorConfig | None = None,
+        *,
+        context_dim: int = 0,
     ):
         super().__init__()
         config = predictor_config or PredictorConfig()
         self.use_attention = config.use_attention
         self.latent_dim = latent_dim
+        self.context_dim = context_dim
 
         self.latent_proj = nn.Linear(latent_dim, config.hidden_dim)
         self.action_proj = nn.Linear(action_dim, config.hidden_dim)
+        self.context_proj = (
+            nn.Linear(context_dim, config.hidden_dim) if context_dim > 0 else None
+        )
 
         if self.use_attention:
             num_heads = min(4, config.hidden_dim)
@@ -45,19 +51,30 @@ class Predictor(nn.Module):
     def _ensure_batch(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.unsqueeze(0) if tensor.dim() == 1 else tensor
 
-    def forward(self, latent_state, action):
+    def forward(
+        self,
+        latent_state: torch.Tensor,
+        action: torch.Tensor,
+        context: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         latent_state = self._ensure_batch(latent_state)
         action = self._ensure_batch(action)
 
-        latent_token = self.latent_proj(latent_state).unsqueeze(1)
-        action_token = self.action_proj(action).unsqueeze(1)
-        tokens = torch.cat([latent_token, action_token], dim=1)
+        tokens = [
+            self.latent_proj(latent_state).unsqueeze(1),
+            self.action_proj(action).unsqueeze(1),
+        ]
+        if context is not None and self.context_proj is not None:
+            context = self._ensure_batch(context)
+            tokens.append(self.context_proj(context).unsqueeze(1))
+
+        token_tensor = torch.cat(tokens, dim=1)
 
         if self.use_attention:
-            attended, _ = self.attention(tokens, tokens, tokens)
+            attended, _ = self.attention(token_tensor, token_tensor, token_tensor)
             x = attended.mean(dim=1)
         else:
-            x = tokens.mean(dim=1)
+            x = token_tensor.mean(dim=1)
 
         output = self.output_network(x)
         return output.squeeze(0) if output.shape[0] == 1 else output
@@ -67,6 +84,7 @@ class Predictor(nn.Module):
         latent_state: torch.Tensor,
         action: torch.Tensor,
         num_samples: int = 10,
+        context: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Estimate latent prediction mean and variance via MC dropout."""
         was_training = self.training
@@ -75,7 +93,7 @@ class Predictor(nn.Module):
         samples: list[torch.Tensor] = []
         with torch.no_grad():
             for _ in range(num_samples):
-                samples.append(self.forward(latent_state, action))
+                samples.append(self.forward(latent_state, action, context=context))
 
         if not was_training:
             self.eval()

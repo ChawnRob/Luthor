@@ -8,7 +8,8 @@ from luthor.active_learning.sampler import UncertaintySampler
 from luthor.config import ActiveLearningConfig, LuthorConfig
 from luthor.environment.gridworld import GridWorld
 from luthor.jepa_model.world_model import WorldModel
-from luthor.training.jepa_step import jepa_train_step
+from luthor.memory.context_compressor import ContextHistory
+from luthor.training.context_session import build_context, jepa_train_step_with_context
 
 
 @dataclass
@@ -48,6 +49,7 @@ class ActiveLearningLoop:
             self.action_dim,
             encoder_config=config.encoder,
             predictor_config=config.predictor,
+            memory_config=config.memory,
             latent_dim=config.encoder.latent_dim,
         )
         self.optimizer = optimizer or optim.Adam(
@@ -75,11 +77,29 @@ class ActiveLearningLoop:
         uncertainties = [self.sampler.score(obs, action) for obs, action in selected]
         losses: list[float] = []
 
+        history = (
+            ContextHistory(self.config.memory.history_length)
+            if self.config.memory.use_context_compression
+            else None
+        )
+        if history is not None:
+            history.add(selected[0][0])
+
         for obs, action in selected:
             next_obs = self.oracle.query(obs, action)
+            context = build_context(self.world_model, history) if history is not None else None
             for _ in range(self.al_config.train_steps_per_round):
-                loss = jepa_train_step(self.world_model, self.optimizer, obs, action, next_obs)
+                loss = jepa_train_step_with_context(
+                    self.world_model,
+                    self.optimizer,
+                    obs,
+                    action,
+                    next_obs,
+                    context=context,
+                )
                 losses.append(loss)
+            if history is not None:
+                history.add(next_obs)
 
         return ActiveLearningRoundResult(
             round_index=round_index,

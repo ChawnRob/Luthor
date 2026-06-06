@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 from luthor.config import EncoderConfig
@@ -9,6 +10,8 @@ class Encoder(nn.Module):
         input_dim: int,
         encoder_config: EncoderConfig | None = None,
         latent_dim: int | None = None,
+        *,
+        context_dim: int = 0,
     ):
         super().__init__()
         config = encoder_config or EncoderConfig()
@@ -21,8 +24,16 @@ class Encoder(nn.Module):
             )
 
         self.latent_dim = config.latent_dim
+        self.context_dim = context_dim
+        self.obs_network = self._build_network(input_dim, config)
+        if context_dim > 0:
+            self.contextual_network = self._build_network(input_dim + context_dim, config)
+        else:
+            self.contextual_network = None
+
+    def _build_network(self, in_dim: int, config: EncoderConfig) -> nn.Sequential:
         layers: list[nn.Module] = [
-            nn.Linear(input_dim, config.hidden_dim),
+            nn.Linear(in_dim, config.hidden_dim),
             nn.ReLU(),
             nn.Dropout(config.dropout),
         ]
@@ -35,7 +46,9 @@ class Encoder(nn.Module):
                 ]
             )
         layers.append(nn.Linear(config.hidden_dim, config.latent_dim))
-        self.network = nn.Sequential(*layers)
+        return nn.Sequential(*layers)
 
-    def forward(self, x):
-        return self.network(x)
+    def forward(self, x: torch.Tensor, context: torch.Tensor | None = None) -> torch.Tensor:
+        if context is not None and self.contextual_network is not None:
+            return self.contextual_network(torch.cat([x, context], dim=-1))
+        return self.obs_network(x)

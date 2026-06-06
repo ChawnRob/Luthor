@@ -12,7 +12,9 @@ from luthor.active_learning.loop import ActiveLearningLoop
 from luthor.environment.gridworld import GridWorld
 from luthor.jepa_model.planner import Planner
 from luthor.jepa_model.world_model import WorldModel
+from luthor.memory.context_compressor import ContextHistory
 from luthor.pipeline.params import config_from_params, load_params
+from luthor.training.context_session import build_context, jepa_train_step_with_context
 from luthor.utils.cost_function import euclidean_distance_cost
 from luthor.utils.metrics import compute_success_rate
 
@@ -34,28 +36,37 @@ def train_jepa(
     *,
     num_episodes: int,
     steps_per_episode: int,
+    history_length: int,
+    use_context: bool,
 ) -> float:
     action_dim = env.action_dim
     final_loss = 0.0
 
     for _ in range(num_episodes):
         observation = env.reset()
+        history = ContextHistory(history_length) if use_context else None
+        if history is not None:
+            history.add(observation)
         total_loss = 0.0
 
         for _ in range(steps_per_episode):
             action = torch.rand(action_dim) * 2 - 1
+            context = build_context(world_model, history) if history is not None else None
             next_observation = env.step(action)
 
-            optimizer.zero_grad()
-            current_latent = world_model.encoder(observation)
-            target_latent = world_model.encoder(next_observation).detach()
-            predicted_latent = world_model.predictor(current_latent, action)
-            loss = torch.mean((predicted_latent - target_latent) ** 2)
-            loss.backward()
-            optimizer.step()
+            loss = jepa_train_step_with_context(
+                world_model,
+                optimizer,
+                observation,
+                action,
+                next_observation,
+                context=context,
+            )
 
-            total_loss += float(loss.item())
+            total_loss += loss
             observation = next_observation
+            if history is not None:
+                history.add(observation)
 
         final_loss = total_loss / steps_per_episode
 
@@ -79,6 +90,7 @@ def run_training(
         env.action_dim,
         encoder_config=config.encoder,
         predictor_config=config.predictor,
+        memory_config=config.memory,
         latent_dim=config.encoder.latent_dim,
     )
     optimizer = optim.Adam(world_model.parameters(), lr=config.planner.learning_rate)
@@ -93,6 +105,8 @@ def run_training(
         optimizer,
         num_episodes=config.planner.num_iterations,
         steps_per_episode=train_steps,
+        history_length=config.memory.history_length,
+        use_context=config.memory.use_context_compression,
     )
 
     loop = ActiveLearningLoop(
@@ -116,6 +130,8 @@ def run_training(
         planner,
         num_episodes=eval_episodes,
         max_steps=env.max_steps,
+        world_model=world_model,
+        history_length=config.memory.history_length,
     )
 
     metrics = {

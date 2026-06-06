@@ -50,9 +50,13 @@ from luthor.deepseek_integration import (
 # Active learning (JEPA SLM skeleton)
 from luthor.active_learning import ActiveLearningLoop, DummyOracle, UncertaintySampler
 
+# Memory compression
+from luthor.memory import ContextCompressor, ContextHistory
+
 # Configuration
 from luthor.config import (
     ActiveLearningConfig,
+    MemoryConfig,
     LuthorConfig,
     EncoderConfig,
     PredictorConfig,
@@ -90,8 +94,12 @@ __all__ = [
     "ActiveLearningLoop",
     "DummyOracle",
     "UncertaintySampler",
+    # Memory compression
+    "ContextCompressor",
+    "ContextHistory",
     # Configuration
     "ActiveLearningConfig",
+    "MemoryConfig",
     "LuthorConfig",
     "EncoderConfig",
     "PredictorConfig",
