@@ -1,0 +1,38 @@
+vars:
+  - params.yaml
+
+stages:
+  prepare_data:
+    cmd: PYTHONPATH=src python3 -m luthor.pipeline.prepare_data params.yaml data/raw/gridworld.json
+    deps:
+      - params.yaml
+      - src/luthor/pipeline/prepare_data.py
+      - src/luthor/pipeline/params.py
+      - src/luthor/environment/gridworld.py
+    params:
+      - params.yaml:
+          - seed
+          - gridworld
+    outs:
+      - data/raw/gridworld.json
+
+  train:
+    cmd: PYTHONPATH=src python3 -m luthor.pipeline.train params.yaml data/raw/gridworld.json metrics.json
+    deps:
+      - params.yaml
+      - data/raw/gridworld.json
+      - src/luthor/pipeline/train.py
+      - src/luthor/pipeline/params.py
+      - src/luthor/active_learning/loop.py
+      - src/luthor/jepa_model/world_model.py
+      - src/luthor/utils/metrics.py
+    params:
+      - params.yaml:
+          - seed
+          - encoder
+          - predictor
+          - planner
+          - active_learning
+          - eval
+    outs:
+      - metrics.json

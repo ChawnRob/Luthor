@@ -78,6 +78,21 @@ class LuthorConfig:
     debug: bool = False
 
     @staticmethod
+    def from_params(params: dict) -> "LuthorConfig":
+        visualization = params.get("visualization", {})
+        logging_cfg = params.get("logging", {})
+
+        return LuthorConfig(
+            encoder=EncoderConfig(**params["encoder"]),
+            predictor=PredictorConfig(**params["predictor"]),
+            planner=PlannerConfig(**params["planner"]),
+            visualization=VisualizationConfig(**visualization),
+            logging=LoggingConfig(**logging_cfg),
+            active_learning=ActiveLearningConfig(**params["active_learning"]),
+            debug=params.get("debug", False),
+        )
+
+    @staticmethod
     def from_env() -> "LuthorConfig":
         """Load configuration from environment variables."""
         return LuthorConfig(

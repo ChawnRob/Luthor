@@ -109,6 +109,32 @@ class GridWorld:
     def is_at_goal(self, state: torch.Tensor | None = None) -> bool:
         return self.distance_to_goal(state) <= self.goal_tolerance
 
+    def to_spec(self) -> dict:
+        return {
+            "state_dim": self.state_dim,
+            "action_dim": self.action_dim,
+            "grid_size": self.grid_size,
+            "noise_std": self.noise_std,
+            "goal": self.goal.tolist(),
+            "goal_tolerance": self.goal_tolerance,
+            "max_steps": self.max_steps,
+            "obstacles": [list(cell) for cell in self.obstacles],
+        }
+
+    @classmethod
+    def from_spec(cls, spec: dict) -> GridWorld:
+        obstacles = [tuple(cell) for cell in spec.get("obstacles", [])]
+        return cls(
+            int(spec.get("state_dim", 2)),
+            int(spec.get("action_dim", 2)),
+            noise_std=float(spec.get("noise_std", 0.1)),
+            grid_size=int(spec["grid_size"]),
+            obstacles=obstacles,
+            goal=spec.get("goal"),
+            goal_tolerance=float(spec.get("goal_tolerance", 0.5)),
+            max_steps=int(spec.get("max_steps", 50)),
+        )
+
     def _sample_start_position(self) -> torch.Tensor:
         goal_cell = self._cell_from_tensor(self.goal)
         while True:

@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+.venv
+venv
+.env
+outputs
+*.png
+website
+.git
+tests
+docs

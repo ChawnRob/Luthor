@@ -3,7 +3,7 @@ export PYTHONPATH := src
 API_HOST ?= 0.0.0.0
 API_PORT ?= 8080
 
-.PHONY: install demo active test run-api docker-up docker-down docker-logs
+.PHONY: install demo active test run-api docker-up docker-down docker-logs dvc-repro
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -28,3 +28,6 @@ docker-down:
 
 docker-logs:
 	docker compose logs -f api
+
+dvc-repro:
+	dvc repro
