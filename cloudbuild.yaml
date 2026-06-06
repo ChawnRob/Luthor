@@ -1,0 +1,57 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - gcr.io/$PROJECT_ID/luthor:$SHORT_SHA
+      - -t
+      - gcr.io/$PROJECT_ID/luthor:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - gcr.io/$PROJECT_ID/luthor:$SHORT_SHA
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - gcr.io/$PROJECT_ID/luthor:latest
+
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        ENV_VARS="LUTHOR_ENCODER_LATENT_DIM=16"
+        if [[ -n "${_LUTHOR_PROMETHEUS_PUSH_GATEWAY:-}" ]]; then
+          ENV_VARS="${ENV_VARS},LUTHOR_PROMETHEUS_PUSH_GATEWAY=${_LUTHOR_PROMETHEUS_PUSH_GATEWAY}"
+        fi
+        gcloud run deploy ${_SERVICE_NAME} \
+          --image "gcr.io/$PROJECT_ID/luthor:$SHORT_SHA" \
+          --region "${_REGION}" \
+          --platform managed \
+          --allow-unauthenticated \
+          --memory "${_MEMORY}" \
+          --cpu "${_CPU}" \
+          --timeout "${_TIMEOUT}" \
+          --set-env-vars "${ENV_VARS}"
+
+images:
+  - gcr.io/$PROJECT_ID/luthor:$SHORT_SHA
+  - gcr.io/$PROJECT_ID/luthor:latest
+
+substitutions:
+  _REGION: europe-west1
+  _SERVICE_NAME: luthor
+  _MEMORY: 1Gi
+  _CPU: "1"
+  _TIMEOUT: "3600"
+  _LUTHOR_PROMETHEUS_PUSH_GATEWAY: ""
+
+options:
+  machineType: N1_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1800s

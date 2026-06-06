@@ -29,6 +29,9 @@ docker-down:
 docker-logs:
 	docker compose logs -f api
 
+docker-monitoring:
+	docker compose up -d prometheus grafana
+
 dvc-repro:
 	dvc repro
 

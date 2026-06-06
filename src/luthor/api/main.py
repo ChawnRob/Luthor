@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -7,6 +8,15 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from luthor.active_learning.pending_labels import get_pending_label_registry
+from luthor.api.metrics import (
+    PrometheusMiddleware,
+    metrics_response,
+    record_active_learning_round,
+    record_jepa_inference_latency,
+    record_model_version_request,
+    start_push_gateway_if_configured,
+    stop_push_gateway,
+)
 from luthor.api.export_service import LogExportService, get_export_token
 from luthor.api.routes import ab_router, export_router, label_router, prompts_router
 from luthor.api.schemas import (
@@ -33,7 +43,9 @@ async def lifespan(app: FastAPI):
     app.state.export_service = LogExportService(app.state.log_store)
     app.state.export_token = get_export_token()
     app.state.pending_registry = get_pending_label_registry()
+    start_push_gateway_if_configured()
     yield
+    stop_push_gateway()
 
 
 def create_app() -> FastAPI:
@@ -44,10 +56,15 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    application.add_middleware(PrometheusMiddleware)
     application.include_router(export_router)
     application.include_router(prompts_router)
     application.include_router(ab_router)
     application.include_router(label_router)
+
+    @application.get("/metrics", include_in_schema=False)
+    def metrics():
+        return metrics_response()
 
     label_ui_path = Path(__file__).resolve().parents[3] / "web" / "label_ui.html"
 
@@ -91,10 +108,13 @@ def create_app() -> FastAPI:
         embedding_store: EmbeddingStore = request.app.state.embedding_store
 
         try:
+            started = time.perf_counter()
             embedding_id, embedding, model_version = service.embed(
                 payload.observation,
                 model_version=x_model_version,
             )
+            record_jepa_inference_latency("/embed", time.perf_counter() - started)
+            record_model_version_request("/embed", model_version)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -135,12 +155,15 @@ def create_app() -> FastAPI:
         log_store: InferenceLogStore = request.app.state.log_store
 
         try:
+            started = time.perf_counter()
             result = service.predict(
                 payload.observation,
                 payload.action,
                 payload.mc_samples,
                 model_version=x_model_version,
             )
+            record_jepa_inference_latency("/predict", time.perf_counter() - started)
+            record_model_version_request("/predict", str(result["model_version"]))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -177,6 +200,8 @@ def create_app() -> FastAPI:
                 pool_size=payload.pool_size,
                 query_batch_size=payload.query_batch_size,
             )
+            for _ in results:
+                record_active_learning_round()
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
