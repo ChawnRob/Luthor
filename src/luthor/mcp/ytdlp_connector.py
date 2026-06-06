@@ -8,6 +8,19 @@ from urllib.parse import urlparse
 
 from luthor.config import MCPConnectorConfig
 
+_YTDLP_INSTALL_HINT = (
+    "yt-dlp is required for media downloads. "
+    "Install dependencies with: make install  (or pip install -r requirements.txt)"
+)
+
+
+def _get_yt_dlp():
+    try:
+        import yt_dlp
+    except ImportError as exc:
+        raise ImportError(_YTDLP_INSTALL_HINT) from exc
+    return yt_dlp
+
 
 class YtDlpConnector:
     """Media download and metadata extraction via yt-dlp."""
@@ -57,8 +70,7 @@ class YtDlpConnector:
         }
 
     def _extract_info_sync(self, url: str) -> dict[str, Any]:
-        import yt_dlp
-
+        yt_dlp = _get_yt_dlp()
         self._validate_url(url)
         with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -76,8 +88,7 @@ class YtDlpConnector:
         output_template: str | None = None,
         format: str | None = None,
     ) -> str:
-        import yt_dlp
-
+        yt_dlp = _get_yt_dlp()
         self._validate_url(url)
         opts = self._base_opts(output_template)
         if format:
