@@ -1,4 +1,6 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import QuotaPanel from "@/components/dashboard/QuotaPanel";
+import ToolSyncPanel from "@/components/dashboard/ToolSyncPanel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -79,6 +81,7 @@ export default function DashboardHome() {
     <DashboardLayout
       title="Tableau de bord"
       description="Vue d'ensemble de l'état de l'agent LUTHOR et des services connectés."
+      futuristic
     >
       {error ? (
         <div className="mb-6 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -149,8 +152,15 @@ export default function DashboardHome() {
         </Card>
       </div>
 
+      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+        <QuotaPanel />
+        <div className="xl:col-span-2">
+          <ToolSyncPanel />
+        </div>
+      </div>
+
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="border-primary/15 bg-card/70 backdrop-blur">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Server className="h-4 w-4 text-primary" />
@@ -184,7 +194,7 @@ export default function DashboardHome() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-primary/15 bg-card/70 backdrop-blur">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Plug className="h-4 w-4 text-primary" />

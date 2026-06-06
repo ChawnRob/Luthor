@@ -231,6 +231,8 @@ export default defineConfig({
       "/label": { target: "http://localhost:8080", changeOrigin: true },
       "/export": { target: "http://localhost:8080", changeOrigin: true },
       "/mcp": { target: "http://localhost:8080", changeOrigin: true },
+      "/auth": { target: "http://localhost:8080", changeOrigin: true },
+      "/sync": { target: "http://localhost:8080", changeOrigin: true },
     },
     allowedHosts: [
       ".manuspre.computer",

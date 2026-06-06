@@ -285,3 +285,61 @@ class ConfigResponse(BaseModel):
     message: str = (
         "Configuration is read-only. Set environment variables in .env or .env.prod on the server."
     )
+
+
+class AuthSignupRequest(BaseModel):
+    email: str = Field(..., min_length=3)
+    password: str = Field(..., min_length=8)
+    name: str = Field(..., min_length=1)
+
+
+class AuthSigninRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthTokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str | None = None
+    token_type: str = "bearer"
+    expires_in: int | None = None
+    user_id: str | None = None
+
+
+class AuthOAuthResponse(BaseModel):
+    provider: str
+    authorization_url: str
+
+
+class AuthMfaEnableRequest(BaseModel):
+    access_token: str = Field(..., min_length=10)
+
+
+class AuthMfaEnableResponse(BaseModel):
+    factor_id: str | None = None
+    totp_uri: str | None = None
+    qr_code: str | None = None
+    secret: str | None = None
+
+
+class UserProfileResponse(BaseModel):
+    id: str
+    email: str
+    name: str | None = None
+    quota_tier: str
+    subscription_status: str
+    mfa_enabled: bool
+    usage: dict[str, int | str]
+
+
+class ToolSyncItem(BaseModel):
+    connector: str
+    enabled: bool
+    status: str
+    last_sync_at: str | None = None
+    tools_count: int = 0
+
+
+class ToolSyncResponse(BaseModel):
+    connectors: list[ToolSyncItem]
+    synced_at: str

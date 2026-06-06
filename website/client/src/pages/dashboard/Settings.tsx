@@ -2,14 +2,18 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { getAccessToken } from "@/lib/auth-storage";
 import { getApiUrl, getConfig, type ConfigResponse } from "@/lib/api";
-import { AlertCircle, KeyRound } from "lucide-react";
+import { AlertCircle, KeyRound, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export default function Settings() {
   const [config, setConfig] = useState<ConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mfaLoading, setMfaLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +43,35 @@ export default function Settings() {
     };
   }, []);
 
+  async function enableMfa() {
+    const token = getAccessToken();
+    if (!token) {
+      toast.error("Connectez-vous pour activer la MFA");
+      return;
+    }
+    setMfaLoading(true);
+    try {
+      const response = await fetch(`${getApiUrl()}/auth/mfa/enable`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ access_token: token }),
+      });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.detail || "Échec MFA");
+      }
+      const data = (await response.json()) as { totp_uri?: string; secret?: string };
+      toast.success("MFA TOTP activée — scannez le QR dans votre application");
+      if (data.totp_uri) {
+        console.info("TOTP URI:", data.totp_uri);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Échec MFA");
+    } finally {
+      setMfaLoading(false);
+    }
+  }
+
   return (
     <DashboardLayout
       title="Paramètres"
@@ -63,6 +96,23 @@ export default function Settings() {
           {error}
         </div>
       ) : null}
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldCheck className="h-4 w-4" />
+            Double authentification (TOTP)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Activez la MFA via Supabase pour sécuriser votre compte entreprise.
+          </p>
+          <Button onClick={() => void enableMfa()} disabled={mfaLoading}>
+            Activer MFA
+          </Button>
+        </CardContent>
+      </Card>
 
       {loading ? (
         <Skeleton className="h-64 w-full" />

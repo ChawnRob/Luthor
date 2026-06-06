@@ -149,6 +149,32 @@ class MCPConnectorConfig:
 
 
 @dataclass
+class QuotaTierLimits:
+    """Per-tier usage limits (freemium)."""
+    max_api_calls_per_day: int = 50
+    max_complex_tasks_per_month: int = 5
+    max_storage_mb: int = 10
+
+
+@dataclass
+class QuotasConfig:
+    """Quota limits by subscription tier."""
+    free: QuotaTierLimits = field(default_factory=QuotaTierLimits)
+    pro: QuotaTierLimits = field(
+        default_factory=lambda: QuotaTierLimits(
+            max_api_calls_per_day=10000,
+            max_complex_tasks_per_month=1000,
+            max_storage_mb=1024,
+        )
+    )
+
+    def limits_for(self, tier: str) -> QuotaTierLimits:
+        if tier == "pro":
+            return self.pro
+        return self.free
+
+
+@dataclass
 class MCPConfig:
     """MCP tool integration configuration."""
     enabled: bool = True
@@ -195,6 +221,7 @@ class LuthorConfig:
     gridworld: GridWorldConfig
     generalization: GeneralizationConfig
     mcp: MCPConfig = field(default_factory=MCPConfig)
+    quotas: QuotasConfig = field(default_factory=QuotasConfig)
     prompt_version: str = "v1"
     seed: int = 42
     debug: bool = False
@@ -211,6 +238,12 @@ class LuthorConfig:
         inventory_cfg = env_cfg.get("inventory", {})
         grid_cfg = params.get("gridworld", {})
         gen_cfg = params.get("generalization", {})
+        quotas_cfg = params.get("quotas", {})
+        quotas = QuotasConfig(
+            free=QuotaTierLimits(**quotas_cfg.get("free", {})) if quotas_cfg.get("free") else QuotaTierLimits(),
+            pro=QuotaTierLimits(**quotas_cfg.get("pro", {})) if quotas_cfg.get("pro") else QuotasConfig().pro,
+        )
+
         mcp_cfg = params.get("mcp", {})
         mcp_tools = mcp_cfg.get("tools", {})
 
@@ -263,6 +296,7 @@ class LuthorConfig:
             environment=environment,
             gridworld=gridworld,
             generalization=generalization,
+            quotas=quotas,
             mcp=MCPConfig(
                 enabled=bool(mcp_cfg.get("enabled", True)),
                 tools={
@@ -614,6 +648,19 @@ def _merge_params_into_config(config: LuthorConfig, params: dict) -> LuthorConfi
         inv = config.environment.inventory
         config.active_learning.input_dim = inv.num_products * 3
         config.active_learning.action_dim = inv.num_products
+
+    quotas_cfg = params.get("quotas", {})
+    if quotas_cfg:
+        if free_cfg := quotas_cfg.get("free"):
+            merged = {**config.quotas.free.__dict__, **free_cfg}
+            config.quotas.free = QuotaTierLimits(
+                **{k: merged[k] for k in QuotaTierLimits.__dataclass_fields__}
+            )
+        if pro_cfg := quotas_cfg.get("pro"):
+            merged = {**config.quotas.pro.__dict__, **pro_cfg}
+            config.quotas.pro = QuotaTierLimits(
+                **{k: merged[k] for k in QuotaTierLimits.__dataclass_fields__}
+            )
 
     mcp_cfg = params.get("mcp", {})
     if mcp_cfg:

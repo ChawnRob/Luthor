@@ -1,3 +1,5 @@
+import { getAccessToken } from "@/lib/auth-storage";
+
 const API_URL = String(import.meta.env.VITE_API_URL ?? "http://localhost:8080").replace(
   /\/$/,
   "",
@@ -70,10 +72,35 @@ export type ConfigResponse = {
   message: string;
 };
 
+export type UserProfile = {
+  id: string;
+  email: string;
+  name?: string | null;
+  quota_tier: string;
+  subscription_status: string;
+  mfa_enabled: boolean;
+  usage: Record<string, number | string>;
+};
+
+export type ToolSyncResponse = {
+  connectors: Array<{
+    connector: string;
+    enabled: boolean;
+    status: string;
+    last_sync_at: string | null;
+    tools_count: number;
+  }>;
+  synced_at: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+  const token = getAccessToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(`${API_URL}${path}`, {
@@ -168,10 +195,14 @@ export async function exportLogs(params: {
   if (params.start_date) search.set("start_date", params.start_date);
   if (params.end_date) search.set("end_date", params.end_date);
 
+  const exportHeaders: HeadersInit = { "X-Export-Token": EXPORT_TOKEN };
+  const token = getAccessToken();
+  if (token) {
+    (exportHeaders as Record<string, string>).Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_URL}/export/logs?${search.toString()}`, {
-    headers: {
-      "X-Export-Token": EXPORT_TOKEN,
-    },
+    headers: exportHeaders,
   });
 
   if (!response.ok) {
@@ -186,4 +217,8 @@ export async function exportLogs(params: {
   }
 
   return response.blob();
+}
+
+export function getToolSync(): Promise<ToolSyncResponse> {
+  return request<ToolSyncResponse>("/sync/tools");
 }

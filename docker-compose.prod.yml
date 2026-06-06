@@ -54,6 +54,7 @@ services:
         VITE_API_URL: https://${LUTHOR_DOMAIN}
         VITE_GRAFANA_URL: https://grafana.${LUTHOR_DOMAIN}
         VITE_EXPORT_TOKEN: ${LUTHOR_EXPORT_TOKEN:-}
+        VITE_AUTH_REQUIRED: "true"
     restart: unless-stopped
     depends_on:
       - api

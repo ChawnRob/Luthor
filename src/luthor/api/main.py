@@ -19,9 +19,11 @@ from luthor.api.metrics import (
     start_push_gateway_if_configured,
     stop_push_gateway,
 )
+from luthor.api.auth_middleware import JWTAuthMiddleware
 from luthor.api.export_service import LogExportService, get_export_token
 from luthor.api.routes import (
     ab_router,
+    auth_router,
     config_router,
     demo_router,
     export_router,
@@ -29,8 +31,10 @@ from luthor.api.routes import (
     logs_router,
     mcp_router,
     prompts_router,
+    sync_router,
     tools_router,
 )
+from luthor.api.user_store import UserStore
 from luthor.mcp.registry import get_mcp_registry, reset_mcp_registry
 from luthor.orchestrator import MCPOrchestrator
 from luthor.api.schemas import (
@@ -53,6 +57,7 @@ async def lifespan(app: FastAPI):
     app.state.config = get_config()
     app.state.jepa_service = JEPAService(app.state.config)
     app.state.log_store = InferenceLogStore()
+    app.state.user_store = UserStore()
     app.state.embedding_store = EmbeddingStore()
     app.state.export_service = LogExportService(app.state.log_store)
     app.state.export_token = get_export_token()
@@ -86,7 +91,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    application.add_middleware(JWTAuthMiddleware)
     application.add_middleware(PrometheusMiddleware)
+    application.include_router(auth_router)
+    application.include_router(sync_router)
     application.include_router(config_router)
     application.include_router(logs_router)
     application.include_router(export_router)
