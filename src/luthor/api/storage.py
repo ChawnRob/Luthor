@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import date, datetime, time, timezone
 from typing import Any
 
 import chromadb
 import psycopg2
 from psycopg2.extras import Json, RealDictCursor
+
+EXPORT_TABLES: frozenset[str] = frozenset(
+    {"inference_logs", "active_learning_runs", "human_labels"}
+)
 
 
 class InferenceLogStore:
@@ -86,6 +91,47 @@ class InferenceLogStore:
                 )
                 rows = cur.fetchall()
         return [dict(row) for row in rows]
+
+    def fetch_export_rows(
+        self,
+        table: str,
+        *,
+        start_date: date | datetime | None = None,
+        end_date: date | datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        if table not in EXPORT_TABLES:
+            raise ValueError(f"Unsupported export table: {table}")
+
+        query = f"SELECT * FROM {table} WHERE 1=1"
+        params: list[Any] = []
+
+        if start_date is not None:
+            query += " AND created_at >= %s"
+            params.append(_start_of_day(start_date))
+
+        if end_date is not None:
+            query += " AND created_at <= %s"
+            params.append(_end_of_day(end_date))
+
+        query += " ORDER BY created_at ASC"
+
+        with self._connect() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, params)
+                rows = cur.fetchall()
+        return [dict(row) for row in rows]
+
+
+def _start_of_day(value: date | datetime) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.combine(value, time.min, tzinfo=timezone.utc)
+
+
+def _end_of_day(value: date | datetime) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.combine(value, time.max, tzinfo=timezone.utc)
 
 
 class EmbeddingStore:

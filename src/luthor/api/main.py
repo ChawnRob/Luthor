@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 
+from luthor.api.export_service import LogExportService, get_export_token
+from luthor.api.routes import export_router
 from luthor.api.schemas import (
     ActiveLearnRequest,
     ActiveLearnResponse,
@@ -23,6 +25,8 @@ async def lifespan(app: FastAPI):
     app.state.jepa_service = JEPAService()
     app.state.log_store = InferenceLogStore()
     app.state.embedding_store = EmbeddingStore()
+    app.state.export_service = LogExportService(app.state.log_store)
+    app.state.export_token = get_export_token()
     yield
 
 
@@ -33,6 +37,8 @@ def create_app() -> FastAPI:
         version="1.0.0",
         lifespan=lifespan,
     )
+
+    application.include_router(export_router)
 
     @application.get("/health", response_model=HealthResponse)
     def health(request: Request) -> HealthResponse:
