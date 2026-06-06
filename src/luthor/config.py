@@ -27,6 +27,10 @@ class PredictorConfig:
     num_layers: int = 3
     dropout: float = 0.1
     use_attention: bool = True
+    predictor_type: str = "mlp"
+    linear_attention_dim_head: int = 32
+    linear_attention_heads: int = 4
+    feature_map: str = "elu+1"
 
 
 @dataclass
@@ -147,6 +151,10 @@ class LuthorConfig:
                 num_layers=int(os.getenv("LUTHOR_PREDICTOR_LAYERS", "3")),
                 dropout=float(os.getenv("LUTHOR_PREDICTOR_DROPOUT", "0.1")),
                 use_attention=os.getenv("LUTHOR_PREDICTOR_USE_ATTENTION", "true").lower() == "true",
+                predictor_type=os.getenv("LUTHOR_PREDICTOR_TYPE", "mlp"),
+                linear_attention_dim_head=int(os.getenv("LUTHOR_LINEAR_ATTENTION_DIM_HEAD", "32")),
+                linear_attention_heads=int(os.getenv("LUTHOR_LINEAR_ATTENTION_HEADS", "4")),
+                feature_map=os.getenv("LUTHOR_LINEAR_ATTENTION_FEATURE_MAP", "elu+1"),
             ),
             planner=PlannerConfig(
                 horizon=int(os.getenv("LUTHOR_PLANNER_HORIZON", "10")),
@@ -213,6 +221,10 @@ class LuthorConfig:
                 "num_layers": self.predictor.num_layers,
                 "dropout": self.predictor.dropout,
                 "use_attention": self.predictor.use_attention,
+                "predictor_type": self.predictor.predictor_type,
+                "linear_attention_dim_head": self.predictor.linear_attention_dim_head,
+                "linear_attention_heads": self.predictor.linear_attention_heads,
+                "feature_map": self.predictor.feature_map,
             },
             "planner": {
                 "horizon": self.planner.horizon,
@@ -272,8 +284,17 @@ def _default_params_path() -> Path | None:
     return candidate if candidate.exists() else None
 
 
+def _merge_predictor_config(config: LuthorConfig, predictor_params: dict) -> None:
+    if not predictor_params:
+        return
+    merged = {**config.predictor.__dict__, **predictor_params}
+    allowed = PredictorConfig.__dataclass_fields__.keys()
+    config.predictor = PredictorConfig(**{key: merged[key] for key in allowed})
+
+
 def _merge_params_into_config(config: LuthorConfig, params: dict) -> LuthorConfig:
     config.prompt_version = str(params.get("prompt_version", config.prompt_version))
+    _merge_predictor_config(config, params.get("predictor", {}))
 
     ab_cfg = params.get("ab_testing", {})
     if ab_cfg:
@@ -309,6 +330,8 @@ def get_config() -> LuthorConfig:
             )
         if os.getenv("LUTHOR_PROMPT_VERSION") is not None:
             _config.prompt_version = os.getenv("LUTHOR_PROMPT_VERSION", "v1")
+        if os.getenv("LUTHOR_PREDICTOR_TYPE") is not None:
+            _config.predictor.predictor_type = os.getenv("LUTHOR_PREDICTOR_TYPE", "mlp")
     return _config
 
 

@@ -25,10 +25,14 @@ encoder:
   dropout: 0.1
 
 predictor:
+  predictor_type: mlp
   hidden_dim: 64
   num_layers: 2
   dropout: 0.1
   use_attention: true
+  linear_attention_dim_head: 16
+  linear_attention_heads: 4
+  feature_map: elu+1
 
 planner:
   horizon: 5

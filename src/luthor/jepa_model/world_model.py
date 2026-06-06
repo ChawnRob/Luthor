@@ -5,7 +5,7 @@ from luthor.config import EncoderConfig, MemoryConfig, PredictorConfig
 from luthor.memory.context_compressor import ContextCompressor
 
 from .encoder import Encoder
-from .predictor import Predictor
+from .predictor import build_predictor
 
 
 class WorldModel(nn.Module):
@@ -39,7 +39,7 @@ class WorldModel(nn.Module):
             encoder_config=encoder_config,
             context_dim=context_dim,
         )
-        self.predictor = Predictor(
+        self.predictor = build_predictor(
             encoder_config.latent_dim,
             action_dim,
             predictor_config=predictor_config,

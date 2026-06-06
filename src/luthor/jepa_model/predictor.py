@@ -1,7 +1,34 @@
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 
 from luthor.config import PredictorConfig
+
+
+def build_predictor(
+    latent_dim: int,
+    action_dim: int,
+    predictor_config: PredictorConfig | None = None,
+    *,
+    context_dim: int = 0,
+) -> nn.Module:
+    config = predictor_config or PredictorConfig()
+    if config.predictor_type == "linear_attention":
+        from luthor.jepa_model.linear_attention import SubquadraticPredictor
+
+        return SubquadraticPredictor(
+            latent_dim,
+            action_dim,
+            predictor_config=config,
+            context_dim=context_dim,
+        )
+    return Predictor(
+        latent_dim,
+        action_dim,
+        predictor_config=config,
+        context_dim=context_dim,
+    )
 
 
 class Predictor(nn.Module):
@@ -51,6 +78,21 @@ class Predictor(nn.Module):
     def _ensure_batch(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.unsqueeze(0) if tensor.dim() == 1 else tensor
 
+    def _context_tokens(self, context: torch.Tensor, batch_size: int) -> torch.Tensor:
+        if context.dim() == 1:
+            context = context.unsqueeze(0)
+            return self.context_proj(context).unsqueeze(1)
+        if context.dim() == 2:
+            if batch_size == 1 and context.shape[-1] == self.context_dim:
+                batched = context.unsqueeze(0)
+                if batched.shape[1] == 1:
+                    return self.context_proj(batched.squeeze(1)).unsqueeze(1)
+                return self.context_proj(batched)
+            return self.context_proj(context).unsqueeze(1)
+        if context.dim() == 3:
+            return self.context_proj(context)
+        raise ValueError("context must be a vector or a sequence tensor")
+
     def forward(
         self,
         latent_state: torch.Tensor,
@@ -65,8 +107,7 @@ class Predictor(nn.Module):
             self.action_proj(action).unsqueeze(1),
         ]
         if context is not None and self.context_proj is not None:
-            context = self._ensure_batch(context)
-            tokens.append(self.context_proj(context).unsqueeze(1))
+            tokens.append(self._context_tokens(context, latent_state.shape[0]))
 
         token_tensor = torch.cat(tokens, dim=1)
 
