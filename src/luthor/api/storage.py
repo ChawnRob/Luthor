@@ -88,6 +88,60 @@ class InferenceLogStore:
         return [dict(row) for row in rows]
 
 
+class HumanLabelStore:
+    """PostgreSQL store for human-provided active-learning labels."""
+
+    def __init__(self, database_url: str | None = None):
+        self.database_url = database_url or os.getenv(
+            "LUTHOR_POSTGRES_URL",
+            "postgresql://luthor:luthor@localhost:5432/luthor",
+        )
+
+    def _connect(self):
+        return psycopg2.connect(self.database_url)
+
+    def ping(self) -> bool:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                cur.fetchone()
+        return True
+
+    def save_label(self, sample_id: str, correct_outcome: dict[str, Any]) -> int:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO human_labels (sample_id, correct_outcome)
+                    VALUES (%s, %s)
+                    ON CONFLICT (sample_id) DO UPDATE
+                    SET correct_outcome = EXCLUDED.correct_outcome,
+                        created_at = NOW()
+                    RETURNING id
+                    """,
+                    (sample_id, Json(correct_outcome)),
+                )
+                row_id = cur.fetchone()[0]
+            conn.commit()
+        return int(row_id)
+
+    def get_label(self, sample_id: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT sample_id, correct_outcome, created_at
+                    FROM human_labels
+                    WHERE sample_id = %s
+                    """,
+                    (sample_id,),
+                )
+                row = cur.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+
 class EmbeddingStore:
     """ChromaDB store for JEPA latent embeddings."""
 

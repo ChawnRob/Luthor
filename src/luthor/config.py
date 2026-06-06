@@ -64,6 +64,21 @@ class ActiveLearningConfig:
     train_steps_per_round: int = 5
     input_dim: int = 2
     action_dim: int = 2
+    human_in_loop: bool = False
+    label_timeout_seconds: int = 3600
+
+
+@dataclass
+class WeatherToolConfig:
+    """Weather tool configuration."""
+    enabled: bool = True
+    api_url: str = "https://api.open-meteo.com/v1/forecast"
+
+
+@dataclass
+class ToolsConfig:
+    """External tool configuration."""
+    weather: WeatherToolConfig
 
 
 @dataclass
@@ -86,6 +101,7 @@ class LuthorConfig:
     logging: LoggingConfig
     active_learning: ActiveLearningConfig
     memory: MemoryConfig
+    tools: ToolsConfig
     debug: bool = False
 
     @staticmethod
@@ -94,6 +110,8 @@ class LuthorConfig:
         logging_cfg = params.get("logging", {})
 
         memory_cfg = params.get("memory", {})
+        tools_cfg = params.get("tools", {})
+        weather_cfg = tools_cfg.get("weather", {})
 
         return LuthorConfig(
             encoder=EncoderConfig(**params["encoder"]),
@@ -103,6 +121,7 @@ class LuthorConfig:
             logging=LoggingConfig(**logging_cfg),
             active_learning=ActiveLearningConfig(**params["active_learning"]),
             memory=MemoryConfig(**memory_cfg),
+            tools=ToolsConfig(weather=WeatherToolConfig(**weather_cfg)),
             debug=params.get("debug", False),
         )
 
@@ -150,6 +169,17 @@ class LuthorConfig:
                 train_steps_per_round=int(os.getenv("LUTHOR_AL_TRAIN_STEPS", "5")),
                 input_dim=int(os.getenv("LUTHOR_AL_INPUT_DIM", "2")),
                 action_dim=int(os.getenv("LUTHOR_AL_ACTION_DIM", "2")),
+                human_in_loop=os.getenv("LUTHOR_HUMAN_IN_LOOP", "false").lower() == "true",
+                label_timeout_seconds=int(os.getenv("LUTHOR_LABEL_TIMEOUT", "3600")),
+            ),
+            tools=ToolsConfig(
+                weather=WeatherToolConfig(
+                    enabled=os.getenv("LUTHOR_WEATHER_ENABLED", "true").lower() == "true",
+                    api_url=os.getenv(
+                        "LUTHOR_WEATHER_API_URL",
+                        "https://api.open-meteo.com/v1/forecast",
+                    ),
+                ),
             ),
             memory=MemoryConfig(
                 use_context_compression=os.getenv(
@@ -204,6 +234,14 @@ class LuthorConfig:
                 "train_steps_per_round": self.active_learning.train_steps_per_round,
                 "input_dim": self.active_learning.input_dim,
                 "action_dim": self.active_learning.action_dim,
+                "human_in_loop": self.active_learning.human_in_loop,
+                "label_timeout_seconds": self.active_learning.label_timeout_seconds,
+            },
+            "tools": {
+                "weather": {
+                    "enabled": self.tools.weather.enabled,
+                    "api_url": self.tools.weather.api_url,
+                },
             },
             "memory": {
                 "use_context_compression": self.memory.use_context_compression,

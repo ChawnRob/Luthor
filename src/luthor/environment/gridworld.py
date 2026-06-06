@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import random
-from typing import Iterable
+from typing import Any, Iterable
 
 import torch
+
+from luthor.tools.weather_tool import DEFAULT_API_URL, get_weather
 
 DEFAULT_OBSTACLES: tuple[tuple[int, int], ...] = (
     (3, 3),
@@ -14,6 +16,20 @@ DEFAULT_OBSTACLES: tuple[tuple[int, int], ...] = (
     (5, 6),
 )
 
+TOOL_ACTION_VECTOR = torch.tensor([-2.0, -2.0], dtype=torch.float32)
+
+
+def is_tool_action(action: torch.Tensor | dict[str, Any]) -> bool:
+    return isinstance(action, dict) and action.get("action_type") == "call_tool"
+
+
+def action_to_tensor(action: torch.Tensor | dict[str, Any]) -> torch.Tensor:
+    if isinstance(action, torch.Tensor):
+        return action
+    if is_tool_action(action):
+        return TOOL_ACTION_VECTOR.clone()
+    raise ValueError(f"Unsupported action type: {type(action)}")
+
 
 class GridWorld:
     """
@@ -23,6 +39,9 @@ class GridWorld:
     - ``reset()`` -> observation tensor
     - ``step(action)`` -> next observation tensor
     - ``transition(state, action, noise_std)`` static dynamics helper
+
+  Supports tool-calling actions via dict payloads:
+    ``{"action_type": "call_tool", "tool_name": "weather", "tool_args": {...}}``
     """
 
     def __init__(
@@ -36,6 +55,8 @@ class GridWorld:
         goal: Iterable[float] | None = None,
         goal_tolerance: float = 0.5,
         max_steps: int = 50,
+        weather_enabled: bool = False,
+        weather_api_url: str = DEFAULT_API_URL,
     ):
         if state_dim != 2 or action_dim != 2:
             raise ValueError("GridWorld requires state_dim=2 and action_dim=2")
@@ -46,6 +67,8 @@ class GridWorld:
         self.grid_size = grid_size
         self.goal_tolerance = goal_tolerance
         self.max_steps = max_steps
+        self.weather_enabled = weather_enabled
+        self.weather_api_url = weather_api_url
 
         obstacle_list = list(obstacles) if obstacles is not None else list(DEFAULT_OBSTACLES)
         self.obstacles = obstacle_list
@@ -62,20 +85,48 @@ class GridWorld:
 
         self.current_state = torch.zeros(state_dim, dtype=torch.float32)
         self._steps = 0
+        self.tool_call_log: list[dict[str, Any]] = []
 
     def reset(self) -> torch.Tensor:
         self._steps = 0
+        self.tool_call_log.clear()
         self.current_state = self._sample_start_position()
         return self.current_state.clone()
 
-    def step(self, action: torch.Tensor) -> torch.Tensor:
+    def step(self, action: torch.Tensor | dict[str, Any]) -> torch.Tensor:
         self._steps += 1
+        if is_tool_action(action):
+            return self._step_tool(action)
+
+        tensor_action = action_to_tensor(action)
         self.current_state = self._apply_transition(
             self.current_state,
-            action,
+            tensor_action,
             noise_std=self.noise_std,
             grid_size=self.grid_size,
             obstacle_set=self.obstacle_set,
+        )
+        return self.current_state.clone()
+
+    def _step_tool(self, action: dict[str, Any]) -> torch.Tensor:
+        tool_name = action.get("tool_name")
+        tool_args = action.get("tool_args") or {}
+        result: dict[str, Any] | None = None
+
+        if tool_name == "weather":
+            if not self.weather_enabled:
+                raise ValueError("Weather tool is disabled in this environment")
+            latitude = float(tool_args.get("latitude", self.current_state[0].item()))
+            longitude = float(tool_args.get("longitude", self.current_state[1].item()))
+            result = get_weather(latitude, longitude, api_url=self.weather_api_url)
+
+        self.tool_call_log.append(
+            {
+                "tool_name": tool_name,
+                "tool_args": tool_args,
+                "result": result,
+                "state": self.current_state.tolist(),
+            }
         )
         return self.current_state.clone()
 
@@ -119,6 +170,8 @@ class GridWorld:
             "goal_tolerance": self.goal_tolerance,
             "max_steps": self.max_steps,
             "obstacles": [list(cell) for cell in self.obstacles],
+            "weather_enabled": self.weather_enabled,
+            "weather_api_url": self.weather_api_url,
         }
 
     @classmethod
@@ -133,6 +186,8 @@ class GridWorld:
             goal=spec.get("goal"),
             goal_tolerance=float(spec.get("goal_tolerance", 0.5)),
             max_steps=int(spec.get("max_steps", 50)),
+            weather_enabled=bool(spec.get("weather_enabled", False)),
+            weather_api_url=str(spec.get("weather_api_url", DEFAULT_API_URL)),
         )
 
     def _sample_start_position(self) -> torch.Tensor:

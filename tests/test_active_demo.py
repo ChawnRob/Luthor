@@ -21,6 +21,7 @@ class ActiveLearningTests(unittest.TestCase):
         os.environ["LUTHOR_AL_QUERY_BATCH"] = "3"
         os.environ["LUTHOR_AL_MC_SAMPLES"] = "3"
         os.environ["LUTHOR_AL_TRAIN_STEPS"] = "2"
+        os.environ["LUTHOR_WEATHER_ENABLED"] = "false"
         os.environ["LUTHOR_VISUALIZATION_OUTPUT_DIR"] = "/tmp/luthor-test-outputs"
 
         from luthor.config import reset_config
@@ -43,7 +44,12 @@ class ActiveLearningTests(unittest.TestCase):
         model = WorldModel(2, 2, encoder_config=config.encoder, predictor_config=config.predictor)
         sampler = UncertaintySampler(model, config.active_learning)
 
-        pool = [(torch.zeros(2), torch.ones(2)), (torch.ones(2), torch.zeros(2))]
+        from luthor.active_learning.sample import TransitionSample
+
+        pool = [
+            TransitionSample(torch.zeros(2), torch.ones(2), sample_id="a"),
+            TransitionSample(torch.ones(2), torch.zeros(2), sample_id="b"),
+        ]
         selected = sampler.select(pool, query_batch_size=1)
         self.assertEqual(len(selected), 1)
 

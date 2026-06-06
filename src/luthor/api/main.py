@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 
+from luthor.active_learning.pending_labels import get_pending_label_registry
+from luthor.api.routes import label_router, tools_router
 from luthor.api.schemas import (
     ActiveLearnRequest,
     ActiveLearnResponse,
@@ -15,14 +17,18 @@ from luthor.api.schemas import (
     PredictResponse,
 )
 from luthor.api.services import JEPAService
-from luthor.api.storage import EmbeddingStore, InferenceLogStore
+from luthor.api.storage import EmbeddingStore, HumanLabelStore, InferenceLogStore
+from luthor.config import get_config
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.jepa_service = JEPAService()
+    app.state.config = get_config()
+    app.state.jepa_service = JEPAService(app.state.config)
     app.state.log_store = InferenceLogStore()
     app.state.embedding_store = EmbeddingStore()
+    app.state.label_store = HumanLabelStore()
+    app.state.pending_registry = get_pending_label_registry()
     yield
 
 
@@ -33,6 +39,9 @@ def create_app() -> FastAPI:
         version="1.0.0",
         lifespan=lifespan,
     )
+
+    application.include_router(label_router)
+    application.include_router(tools_router)
 
     @application.get("/health", response_model=HealthResponse)
     def health(request: Request) -> HealthResponse:
@@ -138,6 +147,8 @@ def create_app() -> FastAPI:
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except TimeoutError as exc:
+            raise HTTPException(status_code=408, detail=str(exc)) from exc
 
         rounds = [
             ActiveLearnRoundResponse(

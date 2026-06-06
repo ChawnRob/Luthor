@@ -42,6 +42,13 @@ active_learning:
   train_steps_per_round: 3
   input_dim: 2
   action_dim: 2
+  human_in_loop: true
+  label_timeout_seconds: 3600
+
+tools:
+  weather:
+    enabled: true
+    api_url: "https://api.open-meteo.com/v1/forecast"
 
 visualization:
   enabled: false

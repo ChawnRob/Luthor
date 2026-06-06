@@ -19,10 +19,17 @@ def main():
     eval_episodes = int(os.getenv("LUTHOR_EVAL_EPISODES", "5"))
 
     print("--- Luthor Active Learning (JEPA SLM skeleton) ---")
+    oracle_mode = (
+        "human-in-the-loop (/label)"
+        if config.active_learning.human_in_loop
+        else "dummy oracle"
+    )
     print(
-        "Uncertainty sampling via predictor variance + dummy oracle "
+        f"Uncertainty sampling via predictor variance + {oracle_mode} "
         f"({config.active_learning.num_rounds} rounds)"
     )
+    if config.tools.weather.enabled:
+        print("Weather tool enabled (call_tool actions in pool)")
     if config.memory.use_context_compression:
         print(f"Context compression enabled (history={config.memory.history_length})")
 

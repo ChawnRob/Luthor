@@ -90,6 +90,8 @@ class JEPAService:
             train_steps_per_round=self.config.active_learning.train_steps_per_round,
             input_dim=self.config.active_learning.input_dim,
             action_dim=self.config.active_learning.action_dim,
+            human_in_loop=self.config.active_learning.human_in_loop,
+            label_timeout_seconds=self.config.active_learning.label_timeout_seconds,
         )
 
         loop = ActiveLearningLoop(

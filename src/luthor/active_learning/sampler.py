@@ -1,7 +1,13 @@
+from __future__ import annotations
+
 import torch
 
+from luthor.active_learning.sample import TransitionSample
 from luthor.config import ActiveLearningConfig
+from luthor.environment.gridworld import action_to_tensor
 from luthor.jepa_model.world_model import WorldModel
+
+TOOL_SAMPLE_BOOST = 10.0
 
 
 class UncertaintySampler:
@@ -11,22 +17,26 @@ class UncertaintySampler:
         self.world_model = world_model
         self.config = config
 
-    def score(self, observation: torch.Tensor, action: torch.Tensor) -> float:
+    def score(self, sample: TransitionSample) -> float:
+        action_tensor = action_to_tensor(sample.action)
         with torch.no_grad():
-            latent = self.world_model.encoder(observation)
+            latent = self.world_model.encoder(sample.observation)
             _, variance = self.world_model.predictor.predict_with_uncertainty(
                 latent,
-                action,
+                action_tensor,
                 num_samples=self.config.mc_samples,
             )
-        return float(variance.mean().item())
+        base_score = float(variance.mean().item())
+        if sample.used_tool and self.config.human_in_loop:
+            return base_score + TOOL_SAMPLE_BOOST
+        return base_score
 
     def select(
         self,
-        pool: list[tuple[torch.Tensor, torch.Tensor]],
+        pool: list[TransitionSample],
         query_batch_size: int | None = None,
-    ) -> list[tuple[torch.Tensor, torch.Tensor]]:
+    ) -> list[TransitionSample]:
         batch_size = query_batch_size or self.config.query_batch_size
-        scored = [(self.score(obs, action), obs, action) for obs, action in pool]
+        scored = [(self.score(sample), sample) for sample in pool]
         scored.sort(key=lambda item: item[0], reverse=True)
-        return [(obs, action) for _, obs, action in scored[:batch_size]]
+        return [sample for _, sample in scored[:batch_size]]

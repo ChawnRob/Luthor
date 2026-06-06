@@ -53,6 +53,13 @@ MINIMAL_PARAMS = {
         "train_steps_per_round": 1,
         "input_dim": 2,
         "action_dim": 2,
+        "human_in_loop": False,
+    },
+    "tools": {
+        "weather": {
+            "enabled": False,
+            "api_url": "https://api.open-meteo.com/v1/forecast",
+        },
     },
     "visualization": {
         "enabled": False,

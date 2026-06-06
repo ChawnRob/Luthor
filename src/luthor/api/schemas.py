@@ -55,3 +55,34 @@ class HealthResponse(BaseModel):
 class ErrorResponse(BaseModel):
     detail: str
     metadata: dict[str, Any] | None = None
+
+
+class LabelRequest(BaseModel):
+    sample_id: str
+    correct_outcome: dict[str, Any]
+
+
+class LabelResponse(BaseModel):
+    sample_id: str
+    stored: bool
+
+
+class PendingLabelItem(BaseModel):
+    sample_id: str
+    observation: list[float]
+    action: Any
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: float
+
+
+class PendingLabelsResponse(BaseModel):
+    pending: list[PendingLabelItem]
+
+
+class WeatherResponse(BaseModel):
+    latitude: float
+    longitude: float
+    temperature_c: float | None = None
+    wind_speed_kmh: float | None = None
+    weather_code: int | None = None
+    source: str

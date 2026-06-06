@@ -19,3 +19,13 @@ CREATE TABLE IF NOT EXISTS active_learning_runs (
 
 CREATE INDEX IF NOT EXISTS idx_inference_logs_endpoint ON inference_logs (endpoint);
 CREATE INDEX IF NOT EXISTS idx_inference_logs_created_at ON inference_logs (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS human_labels (
+    id SERIAL PRIMARY KEY,
+    sample_id VARCHAR(128) NOT NULL UNIQUE,
+    correct_outcome JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_human_labels_sample_id ON human_labels (sample_id);
+CREATE INDEX IF NOT EXISTS idx_human_labels_created_at ON human_labels (created_at DESC);

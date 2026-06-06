@@ -84,6 +84,8 @@ def run_training(
 
     grid_spec = load_gridworld_spec(gridworld_path)
     env = GridWorld.from_spec(grid_spec)
+    env.weather_enabled = config.tools.weather.enabled
+    env.weather_api_url = config.tools.weather.api_url
 
     world_model = WorldModel(
         env.state_dim,

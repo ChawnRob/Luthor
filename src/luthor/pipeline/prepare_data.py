@@ -10,6 +10,13 @@ from luthor.pipeline.params import load_params
 
 def build_gridworld_spec(params: dict) -> dict:
     gridworld = dict(params["gridworld"])
+    weather = params.get("tools", {}).get("weather", {})
+    if weather:
+        gridworld["weather_enabled"] = weather.get("enabled", False)
+        gridworld["weather_api_url"] = weather.get(
+            "api_url",
+            "https://api.open-meteo.com/v1/forecast",
+        )
     gridworld["version"] = params.get("version", "1")
     gridworld["seed"] = params.get("seed", 42)
     gridworld["generated_at"] = datetime.now(timezone.utc).isoformat()
