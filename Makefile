@@ -3,7 +3,7 @@ export PYTHONPATH := src
 API_HOST ?= 0.0.0.0
 API_PORT ?= 8080
 
-.PHONY: install demo active test run-api docker-up docker-down docker-logs dvc-repro
+.PHONY: install demo active test run-api docker-up docker-down docker-logs dvc-repro benchmark-generalization
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -31,3 +31,6 @@ docker-logs:
 
 dvc-repro:
 	dvc repro
+
+benchmark-generalization:
+	$(PYTHON) src/luthor/benchmark_generalization.py

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import random
 from dataclasses import dataclass
 
 import torch
@@ -7,7 +10,7 @@ from luthor.active_learning.human_oracle import HumanLabelOracle
 from luthor.active_learning.oracle import DummyOracle
 from luthor.active_learning.sampler import UncertaintySampler
 from luthor.config import ActiveLearningConfig, LuthorConfig
-from luthor.environment.gridworld import GridWorld
+from luthor.environment.factory import build_environment
 from luthor.jepa_model.world_model import WorldModel
 from luthor.memory.context_compressor import ContextHistory
 from luthor.training.context_session import build_context, jepa_train_step_with_context
@@ -27,7 +30,7 @@ class ActiveLearningLoop:
 
     1. Build a candidate pool of (observation, action) pairs.
     2. Rank by predictor variance (uncertainty sampling).
-    3. Query a dummy oracle for ground-truth next states.
+    3. Query oracle (dummy or human-in-the-loop) for ground-truth next states.
     4. Fine-tune the JEPA world model on the selected batch.
     """
 
@@ -36,15 +39,18 @@ class ActiveLearningLoop:
         config: LuthorConfig,
         world_model: WorldModel | None = None,
         optimizer: optim.Optimizer | None = None,
-        env: GridWorld | None = None,
-        oracle: DummyOracle | None = None,
+        env=None,
+        oracle: DummyOracle | HumanLabelOracle | None = None,
     ):
         self.config = config
         self.al_config: ActiveLearningConfig = config.active_learning
         self.input_dim = self.al_config.input_dim
         self.action_dim = self.al_config.action_dim
 
-        self.env = env or GridWorld(self.input_dim, self.action_dim, noise_std=0.0)
+        self.env = env or build_environment(config, seed=config.seed)
+        self.input_dim = self.env.state_dim
+        self.action_dim = self.env.action_dim
+
         self.world_model = world_model or WorldModel(
             self.input_dim,
             self.action_dim,
@@ -65,17 +71,26 @@ class ActiveLearningLoop:
             return HumanLabelOracle(
                 env=self.env,
                 prompt_version=self.config.prompt_version,
+                use_mock_human=self.al_config.use_mock_human,
             )
         return DummyOracle(env=self.env)
 
     def build_pool(self) -> list[tuple[torch.Tensor, torch.Tensor]]:
         pool: list[tuple[torch.Tensor, torch.Tensor]] = []
-        observation = self.env.reset()
+        scenario_id = random.choice(self.config.generalization.train_scenarios)
+        if self.config.environment.type == "inventory":
+            observation = self.env.reset(scenario_id=scenario_id)
+        else:
+            observation = self.env.reset()
 
         for _ in range(self.al_config.pool_size):
             action = torch.rand(self.action_dim) * 2 - 1
             pool.append((observation.clone(), action.clone()))
-            observation = self.env.step(action)
+            if hasattr(self.env, "step"):
+                result = self.env.step(action)
+                observation = result[0] if isinstance(result, tuple) else result
+            else:
+                observation = self.oracle.query(observation, action)
 
         return pool
 
@@ -95,7 +110,12 @@ class ActiveLearningLoop:
             history.add(selected[0][0])
 
         for obs, action in selected:
-            next_obs = self.oracle.query(obs, action)
+            next_obs = self.oracle.query(
+                obs,
+                action,
+                metadata={"environment": self.config.environment.type},
+            ) if isinstance(self.oracle, HumanLabelOracle) else self.oracle.query(obs, action)
+
             context = build_context(self.world_model, history) if history is not None else None
             for _ in range(self.al_config.train_steps_per_round):
                 loss = jepa_train_step_with_context(

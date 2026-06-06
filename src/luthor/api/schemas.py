@@ -78,3 +78,25 @@ class ABMetricsResponse(BaseModel):
     window_hours: int
     versions: dict[str, ABVersionMetrics]
     winner: str | None = None
+
+
+class LabelRequest(BaseModel):
+    sample_id: str
+    correct_outcome: dict[str, Any]
+
+
+class LabelResponse(BaseModel):
+    sample_id: str
+    stored: bool
+
+
+class PendingLabelItem(BaseModel):
+    sample_id: str
+    observation: list[float]
+    action: list[float]
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: float
+
+
+class PendingLabelsResponse(BaseModel):
+    pending: list[PendingLabelItem]

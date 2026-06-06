@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Luthor Human Labeling</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; max-width: 900px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    button { margin-right: 0.5rem; padding: 0.6rem 1rem; cursor: pointer; }
+    .correct { background: #e7f8ee; border-color: #2e7d32; }
+    .incorrect { background: #fdecea; border-color: #c62828; }
+    pre { background: #f7f7f7; padding: 0.75rem; overflow-x: auto; }
+    .status { margin-top: 1rem; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Luthor — Interface de labellisation</h1>
+  <p>Validez les échantillons en attente pour l'active learning human-in-the-loop.</p>
+
+  <div class="card">
+    <button id="refresh">Rafraîchir</button>
+    <div id="sample-container">
+      <p>Aucun échantillon en attente.</p>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+  async function fetchPending() {
+    const response = await fetch('/label/pending');
+  if (!response.ok) throw new Error('Impossible de charger les échantillons');
+    const payload = await response.json();
+    return payload.pending || [];
+  }
+
+  async function submitLabel(sample, isCorrect) {
+    const suggested = sample.metadata?.suggested_next_observation || sample.observation;
+    const nextObservation = isCorrect
+      ? suggested
+      : suggested.map((value, index) => value + (index % 2 === 0 ? 0.1 : -0.1));
+
+    const body = {
+      sample_id: sample.sample_id,
+      correct_outcome: {
+        next_observation: nextObservation,
+        human_verdict: isCorrect ? 'correct' : 'incorrect',
+      },
+    };
+
+    const response = await fetch('/label', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Échec de soumission');
+    }
+  }
+
+  function renderSample(sample) {
+    const container = document.getElementById('sample-container');
+    container.innerHTML = `
+      <h2>Échantillon ${sample.sample_id}</h2>
+      <p><strong>Environnement:</strong> ${sample.metadata?.environment || 'n/a'}</p>
+      <h3>Observation</h3>
+      <pre>${JSON.stringify(sample.observation, null, 2)}</pre>
+      <h3>Action proposée</h3>
+      <pre>${JSON.stringify(sample.action, null, 2)}</pre>
+      <h3>Transition suggérée</h3>
+      <pre>${JSON.stringify(sample.metadata?.suggested_next_observation || [], null, 2)}</pre>
+      <h3>Contexte</h3>
+      <pre>${JSON.stringify(sample.metadata || {}, null, 2)}</pre>
+      <button class="correct" id="correct-btn">Correct</button>
+      <button class="incorrect" id="incorrect-btn">Incorrect</button>
+    `;
+
+    document.getElementById('correct-btn').onclick = async () => {
+      await submitLabel(sample, true);
+      document.getElementById('status').textContent = `Label soumis pour ${sample.sample_id}`;
+      await loadNext();
+    };
+    document.getElementById('incorrect-btn').onclick = async () => {
+      await submitLabel(sample, false);
+      document.getElementById('status').textContent = `Correction soumise pour ${sample.sample_id}`;
+      await loadNext();
+    };
+  }
+
+  async function loadNext() {
+    const pending = await fetchPending();
+    if (!pending.length) {
+      document.getElementById('sample-container').innerHTML = '<p>Aucun échantillon en attente.</p>';
+      return;
+    }
+    renderSample(pending[0]);
+  }
+
+  document.getElementById('refresh').onclick = loadNext;
+  loadNext().catch((error) => {
+    document.getElementById('status').textContent = error.message;
+  });
+  </script>
+</body>
+</html>

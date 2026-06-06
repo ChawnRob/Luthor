@@ -60,6 +60,51 @@ class LoggingConfig:
 
 
 @dataclass
+class InventoryConfig:
+    """Inventory management environment configuration."""
+    num_products: int = 3
+    holding_cost: float = 0.5
+    stockout_cost: float = 10.0
+    lead_time: int = 2
+    demand_mean: list[float] = field(default_factory=lambda: [10.0, 20.0, 15.0])
+    demand_std: list[float] = field(default_factory=lambda: [2.0, 5.0, 3.0])
+    max_steps: int = 50
+    max_order: float = 40.0
+    demand_distribution: str = "normal"
+    service_level_target: float = 0.9
+    initial_stock: list[float] | None = None
+
+
+@dataclass
+class GridWorldConfig:
+    """GridWorld environment configuration."""
+    state_dim: int = 2
+    action_dim: int = 2
+    grid_size: int = 10
+    noise_std: float = 0.1
+    goal: list[float] = field(default_factory=lambda: [8.0, 8.0])
+    goal_tolerance: float = 0.5
+    max_steps: int = 50
+    obstacles: list[list[int]] = field(default_factory=list)
+
+
+@dataclass
+class EnvironmentConfig:
+    """Top-level environment selector."""
+    type: str = "gridworld"
+    inventory: InventoryConfig = field(default_factory=InventoryConfig)
+
+
+@dataclass
+class GeneralizationConfig:
+    """Train/test scenario split for generalization benchmarks."""
+    train_scenarios: list[int] = field(default_factory=lambda: [0, 1, 2, 3])
+    test_scenarios: list[int] = field(default_factory=lambda: [4, 5])
+    max_steps: int = 30
+    train_steps_per_scenario: int = 20
+
+
+@dataclass
 class ActiveLearningConfig:
     """Active learning loop configuration (JEPA SLM skeleton)."""
     num_rounds: int = 10
@@ -70,6 +115,7 @@ class ActiveLearningConfig:
     input_dim: int = 2
     action_dim: int = 2
     human_in_loop: bool = False
+    use_mock_human: bool = True
 
 
 @dataclass
@@ -105,7 +151,11 @@ class LuthorConfig:
     active_learning: ActiveLearningConfig
     memory: MemoryConfig
     ab_testing: ABTestingConfig
+    environment: EnvironmentConfig
+    gridworld: GridWorldConfig
+    generalization: GeneralizationConfig
     prompt_version: str = "v1"
+    seed: int = 42
     debug: bool = False
 
     @staticmethod
@@ -116,6 +166,23 @@ class LuthorConfig:
         memory_cfg = params.get("memory", {})
         ab_cfg = params.get("ab_testing", {})
         ab_models = ab_cfg.get("models", {})
+        env_cfg = params.get("environment", {})
+        inventory_cfg = env_cfg.get("inventory", {})
+        grid_cfg = params.get("gridworld", {})
+        gen_cfg = params.get("generalization", {})
+
+        environment = EnvironmentConfig(
+            type=str(env_cfg.get("type", "gridworld")),
+            inventory=InventoryConfig(**inventory_cfg) if inventory_cfg else InventoryConfig(),
+        )
+        gridworld = GridWorldConfig(**grid_cfg) if grid_cfg else GridWorldConfig()
+        generalization = GeneralizationConfig(**gen_cfg) if gen_cfg else GeneralizationConfig()
+
+        active_learning = ActiveLearningConfig(**params["active_learning"])
+        if environment.type == "inventory":
+            inv = environment.inventory
+            active_learning.input_dim = inv.num_products * 3
+            active_learning.action_dim = inv.num_products
 
         return LuthorConfig(
             encoder=EncoderConfig(**params["encoder"]),
@@ -123,7 +190,7 @@ class LuthorConfig:
             planner=PlannerConfig(**params["planner"]),
             visualization=VisualizationConfig(**visualization),
             logging=LoggingConfig(**logging_cfg),
-            active_learning=ActiveLearningConfig(**params["active_learning"]),
+            active_learning=active_learning,
             memory=MemoryConfig(**memory_cfg),
             ab_testing=ABTestingConfig(
                 enabled=bool(ab_cfg.get("enabled", False)),
@@ -132,7 +199,11 @@ class LuthorConfig:
                     "candidate": ab_models.get("candidate", "models/jepa_model_v2.pth"),
                 },
             ),
+            environment=environment,
+            gridworld=gridworld,
+            generalization=generalization,
             prompt_version=str(params.get("prompt_version", "v1")),
+            seed=int(params.get("seed", 42)),
             debug=params.get("debug", False),
         )
 
@@ -185,7 +256,12 @@ class LuthorConfig:
                 input_dim=int(os.getenv("LUTHOR_AL_INPUT_DIM", "2")),
                 action_dim=int(os.getenv("LUTHOR_AL_ACTION_DIM", "2")),
                 human_in_loop=os.getenv("LUTHOR_HUMAN_IN_LOOP", "false").lower() == "true",
+                use_mock_human=os.getenv("LUTHOR_USE_MOCK_HUMAN", "true").lower() == "true",
             ),
+            environment=EnvironmentConfig(),
+            gridworld=GridWorldConfig(),
+            generalization=GeneralizationConfig(),
+            seed=int(os.getenv("LUTHOR_SEED", "42")),
             ab_testing=ABTestingConfig(
                 enabled=os.getenv("LUTHOR_AB_TESTING_ENABLED", "false").lower() == "true",
                 models={
@@ -252,7 +328,15 @@ class LuthorConfig:
                 "input_dim": self.active_learning.input_dim,
                 "action_dim": self.active_learning.action_dim,
                 "human_in_loop": self.active_learning.human_in_loop,
+                "use_mock_human": self.active_learning.use_mock_human,
             },
+            "environment": {
+                "type": self.environment.type,
+                "inventory": self.environment.inventory.__dict__,
+            },
+            "gridworld": self.gridworld.__dict__,
+            "generalization": self.generalization.__dict__,
+            "seed": self.seed,
             "ab_testing": {
                 "enabled": self.ab_testing.enabled,
                 "models": self.ab_testing.models,
@@ -309,6 +393,39 @@ def _merge_params_into_config(config: LuthorConfig, params: dict) -> LuthorConfi
     al_cfg = params.get("active_learning", {})
     if "human_in_loop" in al_cfg:
         config.active_learning.human_in_loop = bool(al_cfg["human_in_loop"])
+    if "use_mock_human" in al_cfg:
+        config.active_learning.use_mock_human = bool(al_cfg["use_mock_human"])
+
+    env_cfg = params.get("environment", {})
+    if env_cfg:
+        config.environment.type = str(env_cfg.get("type", config.environment.type))
+        inventory_cfg = env_cfg.get("inventory", {})
+        if inventory_cfg:
+            merged = {**config.environment.inventory.__dict__, **inventory_cfg}
+            allowed = InventoryConfig.__dataclass_fields__.keys()
+            config.environment.inventory = InventoryConfig(
+                **{key: merged[key] for key in allowed}
+            )
+
+    grid_cfg = params.get("gridworld", {})
+    if grid_cfg:
+        merged = {**config.gridworld.__dict__, **grid_cfg}
+        allowed = GridWorldConfig.__dataclass_fields__.keys()
+        config.gridworld = GridWorldConfig(**{key: merged[key] for key in allowed})
+
+    gen_cfg = params.get("generalization", {})
+    if gen_cfg:
+        merged = {**config.generalization.__dict__, **gen_cfg}
+        allowed = GeneralizationConfig.__dataclass_fields__.keys()
+        config.generalization = GeneralizationConfig(**{key: merged[key] for key in allowed})
+
+    if "seed" in params:
+        config.seed = int(params["seed"])
+
+    if config.environment.type == "inventory":
+        inv = config.environment.inventory
+        config.active_learning.input_dim = inv.num_products * 3
+        config.active_learning.action_dim = inv.num_products
 
     return config
 

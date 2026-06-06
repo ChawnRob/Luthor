@@ -2,6 +2,26 @@ seed: 42
 
 prompt_version: v1
 
+environment:
+  type: gridworld
+  inventory:
+    num_products: 3
+    holding_cost: 0.5
+    stockout_cost: 10.0
+    lead_time: 2
+    demand_mean: [10, 20, 15]
+    demand_std: [2, 5, 3]
+    max_steps: 50
+    max_order: 40
+    demand_distribution: normal
+    service_level_target: 0.9
+
+generalization:
+  train_scenarios: [0, 1, 2, 3]
+  test_scenarios: [4, 5]
+  max_steps: 30
+  train_steps_per_scenario: 20
+
 gridworld:
   state_dim: 2
   action_dim: 2
@@ -49,6 +69,7 @@ active_learning:
   input_dim: 2
   action_dim: 2
   human_in_loop: false
+  use_mock_human: true
 
 ab_testing:
   enabled: true

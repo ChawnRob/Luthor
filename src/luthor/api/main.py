@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 
+from luthor.active_learning.pending_labels import get_pending_label_registry
 from luthor.api.export_service import LogExportService, get_export_token
-from luthor.api.routes import ab_router, export_router, prompts_router
+from luthor.api.routes import ab_router, export_router, label_router, prompts_router
 from luthor.api.schemas import (
     ActiveLearnRequest,
     ActiveLearnResponse,
@@ -29,6 +32,7 @@ async def lifespan(app: FastAPI):
     app.state.embedding_store = EmbeddingStore()
     app.state.export_service = LogExportService(app.state.log_store)
     app.state.export_token = get_export_token()
+    app.state.pending_registry = get_pending_label_registry()
     yield
 
 
@@ -43,6 +47,15 @@ def create_app() -> FastAPI:
     application.include_router(export_router)
     application.include_router(prompts_router)
     application.include_router(ab_router)
+    application.include_router(label_router)
+
+    label_ui_path = Path(__file__).resolve().parents[3] / "web" / "label_ui.html"
+
+    @application.get("/label-ui")
+    def label_ui() -> FileResponse:
+        if not label_ui_path.exists():
+            raise HTTPException(status_code=404, detail="label_ui.html not found")
+        return FileResponse(label_ui_path)
 
     @application.get("/health", response_model=HealthResponse)
     def health(request: Request) -> HealthResponse:
