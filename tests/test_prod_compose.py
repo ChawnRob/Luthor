@@ -10,6 +10,7 @@ COMPOSE_PATH = ROOT / "docker-compose.prod.yml"
 
 REQUIRED_SERVICES = [
     "traefik",
+    "luthor-ui",
     "api",
     "postgres",
     "chromadb",
@@ -62,6 +63,12 @@ class ProdComposeTests(unittest.TestCase):
             data = yaml.safe_load(handle)
         api = data["services"]["api"]
         self.assertEqual(api["build"]["dockerfile"], "Dockerfile.prod")
+
+    def test_ui_uses_ui_dockerfile(self):
+        with COMPOSE_PATH.open(encoding="utf-8") as handle:
+            data = yaml.safe_load(handle)
+        ui = data["services"]["luthor-ui"]
+        self.assertEqual(ui["build"]["dockerfile"], "Dockerfile.ui")
 
     def test_networks_and_volumes_present(self):
         with COMPOSE_PATH.open(encoding="utf-8") as handle:

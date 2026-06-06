@@ -245,3 +245,43 @@ class DemoTaskResponse(BaseModel):
     status: str
     result: dict[str, Any] | None = None
     error: str | None = None
+
+
+class InferenceLogItem(BaseModel):
+    id: int
+    endpoint: str | None = None
+    request_payload: dict[str, Any] | None = None
+    response_payload: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+    model_version: str | None = None
+    created_at: str | None = None
+
+
+class InferenceLogsResponse(BaseModel):
+    items: list[InferenceLogItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class ConfigConnectorItem(BaseModel):
+    enabled: bool
+    url: str = ""
+    api_key_set: bool = False
+    token_set: bool = False
+    site_id: str = ""
+    model: str | None = None
+    device: str | None = None
+
+
+class ConfigResponse(BaseModel):
+    mcp_enabled: bool
+    mcp_model: str
+    mcp_llm_provider: str
+    postgres_configured: bool
+    chroma_host: str
+    chroma_port: int
+    connectors: dict[str, ConfigConnectorItem]
+    message: str = (
+        "Configuration is read-only. Set environment variables in .env or .env.prod on the server."
+    )

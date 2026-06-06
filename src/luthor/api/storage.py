@@ -127,19 +127,59 @@ class InferenceLogStore:
         return int(row_id)
 
     def recent_inference_logs(self, limit: int = 20) -> list[dict[str, Any]]:
+        items, _total = self.list_inference_logs(page=1, page_size=limit)
+        return items
+
+    def list_inference_logs(
+        self,
+        *,
+        page: int = 1,
+        page_size: int = 20,
+        start_date: date | datetime | None = None,
+        end_date: date | datetime | None = None,
+        endpoint: str | None = None,
+        model_version: str | None = None,
+        table: str = "inference_logs",
+    ) -> tuple[list[dict[str, Any]], int]:
+        if table not in EXPORT_TABLES:
+            raise ValueError(f"Unsupported table: {table}")
+
+        page = max(page, 1)
+        page_size = min(max(page_size, 1), 100)
+        offset = (page - 1) * page_size
+
+        filters = "WHERE 1=1"
+        params: list[Any] = []
+
+        if start_date is not None:
+            filters += " AND created_at >= %s"
+            params.append(_start_of_day(start_date))
+
+        if end_date is not None:
+            filters += " AND created_at <= %s"
+            params.append(_end_of_day(end_date))
+
+        if endpoint is not None:
+            filters += " AND endpoint = %s"
+            params.append(endpoint)
+
+        if model_version is not None and table == "inference_logs":
+            filters += " AND COALESCE(model_version, 'default') = %s"
+            params.append(model_version)
+
+        count_query = f"SELECT COUNT(*) AS total FROM {table} {filters}"
+        data_query = (
+            f"SELECT * FROM {table} {filters} "
+            "ORDER BY created_at DESC LIMIT %s OFFSET %s"
+        )
+
         with self._connect() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
-                    SELECT id, endpoint, request_payload, response_payload, metadata, created_at
-                    FROM inference_logs
-                    ORDER BY created_at DESC
-                    LIMIT %s
-                    """,
-                    (limit,),
-                )
+                cur.execute(count_query, params)
+                total = int(cur.fetchone()["total"])
+                cur.execute(data_query, [*params, page_size, offset])
                 rows = cur.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row) for row in rows], total
 
     def fetch_export_rows(
         self,

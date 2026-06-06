@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from luthor.active_learning.pending_labels import get_pending_label_registry
@@ -20,9 +22,11 @@ from luthor.api.metrics import (
 from luthor.api.export_service import LogExportService, get_export_token
 from luthor.api.routes import (
     ab_router,
+    config_router,
     demo_router,
     export_router,
     label_router,
+    logs_router,
     mcp_router,
     prompts_router,
     tools_router,
@@ -69,7 +73,22 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    cors_origins = os.getenv("LUTHOR_CORS_ORIGINS", "*")
+    allow_origins = (
+        ["*"]
+        if cors_origins.strip() == "*"
+        else [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+    )
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=allow_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     application.add_middleware(PrometheusMiddleware)
+    application.include_router(config_router)
+    application.include_router(logs_router)
     application.include_router(export_router)
     application.include_router(prompts_router)
     application.include_router(ab_router)

@@ -223,6 +223,15 @@ export default defineConfig({
     port: 3000,
     strictPort: false, // Will find next available port if 3000 is busy
     host: true,
+    proxy: {
+      "/health": { target: "http://localhost:8080", changeOrigin: true },
+      "/metrics": { target: "http://localhost:8080", changeOrigin: true },
+      "/logs": { target: "http://localhost:8080", changeOrigin: true },
+      "/config": { target: "http://localhost:8080", changeOrigin: true },
+      "/label": { target: "http://localhost:8080", changeOrigin: true },
+      "/export": { target: "http://localhost:8080", changeOrigin: true },
+      "/mcp": { target: "http://localhost:8080", changeOrigin: true },
+    },
     allowedHosts: [
       ".manuspre.computer",
       ".manus.computer",
