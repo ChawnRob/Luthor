@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+import json
+import os
+from dataclasses import dataclass, field
+from typing import Any
+
+from luthor.llm_provider import LLMConfig, LLMInterface, LLMProvider, LLMProviderFactory
+from luthor.mcp.registry import MCPRegistry, get_mcp_registry
+
+
+@dataclass
+class ToolCallResult:
+    tool_name: str
+    arguments: dict[str, Any]
+    result: dict[str, Any]
+
+
+@dataclass
+class OrchestrationResult:
+    message: str
+    tool_calls: list[ToolCallResult] = field(default_factory=list)
+    used_tools: bool = False
+
+
+class MCPOrchestrator:
+    """Routes user requests through Mistral function calling to MCP tools."""
+
+    def __init__(
+        self,
+        registry: MCPRegistry | None = None,
+        llm: LLMInterface | None = None,
+    ):
+        self.registry = registry or get_mcp_registry()
+        self._llm = llm
+
+    @property
+    def llm(self) -> LLMInterface:
+        if self._llm is None:
+            self._llm = self._build_mistral_llm()
+        return self._llm
+
+    @staticmethod
+    def _build_mistral_llm() -> LLMInterface:
+        provider = os.getenv("LUTHOR_MCP_LLM_PROVIDER", "mistral").lower()
+        if provider != "mistral":
+            return LLMInterface()
+
+        api_key = os.getenv("MISTRAL_API_KEY")
+        if not api_key:
+            raise ValueError("MISTRAL_API_KEY is required for MCP orchestration")
+
+        config = LLMConfig(
+            provider=LLMProvider.MISTRAL,
+            model=os.getenv("LUTHOR_MCP_MODEL", "mistral-small-latest"),
+            api_key=api_key,
+            api_base="https://api.mistral.ai/v1",
+            temperature=float(os.getenv("LUTHOR_LLM_TEMPERATURE", "0.2")),
+            max_tokens=int(os.getenv("LUTHOR_LLM_MAX_TOKENS", "2048")),
+            timeout=int(os.getenv("LUTHOR_LLM_TIMEOUT", "30")),
+        )
+        return LLMInterface(config=config)
+
+    async def run(self, user_message: str, system_prompt: str | None = None) -> OrchestrationResult:
+        tools = self.registry.get_function_tools()
+        if not tools:
+            return OrchestrationResult(
+                message="No MCP tools are enabled. Configure connectors in params.yaml and .env.",
+                used_tools=False,
+            )
+
+        default_system = (
+            "You are the LUTHOR agent orchestrator. "
+            "Choose the best MCP tool when external automation, design, memory, or analytics is needed. "
+            "Otherwise answer directly without calling tools."
+        )
+        completion = self.llm.complete_with_tools(
+            prompt=user_message,
+            tools=tools,
+            system_prompt=system_prompt or default_system,
+        )
+
+        tool_results: list[ToolCallResult] = []
+        for call in completion.tool_calls:
+            arguments = call.get("arguments", {})
+            if isinstance(arguments, str):
+                arguments = json.loads(arguments)
+            result = await self.registry.call_tool(call["name"], arguments)
+            tool_results.append(
+                ToolCallResult(
+                    tool_name=call["name"],
+                    arguments=arguments,
+                    result=result,
+                )
+            )
+
+        if tool_results:
+            summary_prompt = (
+                f"User request: {user_message}\n\n"
+                f"Tool results: {json.dumps([item.result for item in tool_results], ensure_ascii=False)}\n\n"
+                "Summarize the outcome for the user in concise French or English matching the request."
+            )
+            final_message = self.llm.complete(summary_prompt)
+            return OrchestrationResult(
+                message=final_message,
+                tool_calls=tool_results,
+                used_tools=True,
+            )
+
+        return OrchestrationResult(
+            message=completion.content or "No response generated.",
+            used_tools=False,
+        )
+
+
+def get_orchestrator() -> MCPOrchestrator:
+    return MCPOrchestrator()

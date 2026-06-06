@@ -96,3 +96,19 @@ memory:
   gru_hidden_dim: 64
   gru_num_layers: 1
   compress_source: observation
+
+mcp:
+  enabled: true
+  tools:
+    n8n:
+      enabled: false
+      url: ""
+    penpot:
+      enabled: false
+      url: ""
+    appflowy:
+      enabled: false
+      url: ""
+    plausible:
+      enabled: false
+      url: ""

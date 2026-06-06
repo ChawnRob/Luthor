@@ -131,6 +131,30 @@ class ABTestingConfig:
 
 
 @dataclass
+class MCPConnectorConfig:
+    """Single MCP connector configuration."""
+    enabled: bool = False
+    url: str = ""
+    api_key: str = ""
+    token: str = ""
+    site_id: str = ""
+
+
+@dataclass
+class MCPConfig:
+    """MCP tool integration configuration."""
+    enabled: bool = True
+    tools: dict[str, MCPConnectorConfig] = field(
+        default_factory=lambda: {
+            "n8n": MCPConnectorConfig(),
+            "penpot": MCPConnectorConfig(),
+            "appflowy": MCPConnectorConfig(),
+            "plausible": MCPConnectorConfig(),
+        }
+    )
+
+
+@dataclass
 class MemoryConfig:
     """Context compression (GRU memory) configuration."""
     use_context_compression: bool = False
@@ -154,6 +178,7 @@ class LuthorConfig:
     environment: EnvironmentConfig
     gridworld: GridWorldConfig
     generalization: GeneralizationConfig
+    mcp: MCPConfig = field(default_factory=MCPConfig)
     prompt_version: str = "v1"
     seed: int = 42
     debug: bool = False
@@ -170,6 +195,18 @@ class LuthorConfig:
         inventory_cfg = env_cfg.get("inventory", {})
         grid_cfg = params.get("gridworld", {})
         gen_cfg = params.get("generalization", {})
+        mcp_cfg = params.get("mcp", {})
+        mcp_tools = mcp_cfg.get("tools", {})
+
+        def _connector(name: str) -> MCPConnectorConfig:
+            raw = mcp_tools.get(name, {})
+            return MCPConnectorConfig(
+                enabled=bool(raw.get("enabled", False)),
+                url=str(raw.get("url", "")),
+                api_key=str(raw.get("api_key", "")),
+                token=str(raw.get("token", "")),
+                site_id=str(raw.get("site_id", "")),
+            )
 
         environment = EnvironmentConfig(
             type=str(env_cfg.get("type", "gridworld")),
@@ -202,6 +239,15 @@ class LuthorConfig:
             environment=environment,
             gridworld=gridworld,
             generalization=generalization,
+            mcp=MCPConfig(
+                enabled=bool(mcp_cfg.get("enabled", True)),
+                tools={
+                    "n8n": _connector("n8n"),
+                    "penpot": _connector("penpot"),
+                    "appflowy": _connector("appflowy"),
+                    "plausible": _connector("plausible"),
+                },
+            ),
             prompt_version=str(params.get("prompt_version", "v1")),
             seed=int(params.get("seed", 42)),
             debug=params.get("debug", False),
@@ -280,6 +326,7 @@ class LuthorConfig:
                 gru_num_layers=int(os.getenv("LUTHOR_GRU_NUM_LAYERS", "1")),
                 compress_source=os.getenv("LUTHOR_COMPRESS_SOURCE", "observation"),
             ),
+            mcp=_mcp_config_from_env(),
             debug=os.getenv("DEBUG", "false").lower() == "true",
         )
 
@@ -349,8 +396,78 @@ class LuthorConfig:
                 "gru_num_layers": self.memory.gru_num_layers,
                 "compress_source": self.memory.compress_source,
             },
+            "mcp": {
+                "enabled": self.mcp.enabled,
+                "tools": {
+                    name: {
+                        "enabled": connector.enabled,
+                        "url": connector.url,
+                        "api_key": connector.api_key,
+                        "token": connector.token,
+                        "site_id": connector.site_id,
+                    }
+                    for name, connector in self.mcp.tools.items()
+                },
+            },
             "debug": self.debug,
         }
+
+
+def _apply_mcp_env_overrides(config: LuthorConfig) -> None:
+    env_flags = {
+        "n8n": "LUTHOR_MCP_N8N_ENABLED",
+        "penpot": "LUTHOR_MCP_PENPOT_ENABLED",
+        "appflowy": "LUTHOR_MCP_APPFLOWY_ENABLED",
+        "plausible": "LUTHOR_MCP_PLAUSIBLE_ENABLED",
+    }
+    for name, env_key in env_flags.items():
+        if os.getenv(env_key) is not None:
+            config.mcp.tools[name].enabled = os.getenv(env_key, "false").lower() == "true"
+    if os.getenv("LUTHOR_MCP_ENABLED") is not None:
+        config.mcp.enabled = os.getenv("LUTHOR_MCP_ENABLED", "true").lower() == "true"
+
+
+def _mcp_config_from_env() -> MCPConfig:
+    def _connector(
+        name: str,
+        *,
+        url_env: str,
+        key_env: str | None = None,
+        token_env: str | None = None,
+        site_env: str | None = None,
+        enabled_env: str | None = None,
+    ) -> MCPConnectorConfig:
+        return MCPConnectorConfig(
+            enabled=os.getenv(enabled_env or f"LUTHOR_MCP_{name.upper()}_ENABLED", "false").lower()
+            == "true",
+            url=os.getenv(url_env, ""),
+            api_key=os.getenv(key_env, "") if key_env else "",
+            token=os.getenv(token_env, "") if token_env else "",
+            site_id=os.getenv(site_env, "") if site_env else "",
+        )
+
+    return MCPConfig(
+        enabled=os.getenv("LUTHOR_MCP_ENABLED", "true").lower() == "true",
+        tools={
+            "n8n": _connector("n8n", url_env="N8N_API_URL", key_env="N8N_API_KEY"),
+            "penpot": _connector(
+                "penpot",
+                url_env="PENPOT_API_URL",
+                token_env="PENPOT_ACCESS_TOKEN",
+            ),
+            "appflowy": _connector(
+                "appflowy",
+                url_env="APPFLOWY_API_URL",
+                token_env="APPFLOWY_TOKEN",
+            ),
+            "plausible": _connector(
+                "plausible",
+                url_env="PLAUSIBLE_API_URL",
+                token_env="PLAUSIBLE_TOKEN",
+                site_env="PLAUSIBLE_SITE_ID",
+            ),
+        },
+    )
 
 
 # Global configuration instance
@@ -427,6 +544,25 @@ def _merge_params_into_config(config: LuthorConfig, params: dict) -> LuthorConfi
         config.active_learning.input_dim = inv.num_products * 3
         config.active_learning.action_dim = inv.num_products
 
+    mcp_cfg = params.get("mcp", {})
+    if mcp_cfg:
+        config.mcp.enabled = bool(mcp_cfg.get("enabled", config.mcp.enabled))
+        tools_cfg = mcp_cfg.get("tools", {})
+        for name, raw in tools_cfg.items():
+            if name not in config.mcp.tools:
+                continue
+            connector = config.mcp.tools[name]
+            if "enabled" in raw:
+                connector.enabled = bool(raw["enabled"])
+            if "url" in raw:
+                connector.url = str(raw["url"])
+            if "api_key" in raw:
+                connector.api_key = str(raw["api_key"])
+            if "token" in raw:
+                connector.token = str(raw["token"])
+            if "site_id" in raw:
+                connector.site_id = str(raw["site_id"])
+
     return config
 
 
@@ -449,6 +585,7 @@ def get_config() -> LuthorConfig:
             _config.prompt_version = os.getenv("LUTHOR_PROMPT_VERSION", "v1")
         if os.getenv("LUTHOR_PREDICTOR_TYPE") is not None:
             _config.predictor.predictor_type = os.getenv("LUTHOR_PREDICTOR_TYPE", "mlp")
+        _apply_mcp_env_overrides(_config)
     return _config
 
 

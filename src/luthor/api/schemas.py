@@ -100,3 +100,73 @@ class PendingLabelItem(BaseModel):
 
 class PendingLabelsResponse(BaseModel):
     pending: list[PendingLabelItem]
+
+
+class MCPToolInfo(BaseModel):
+    name: str
+    type: str
+    connector: str
+    description: str
+    endpoint: str
+
+
+class MCPToolsResponse(BaseModel):
+    enabled: bool
+    connectors: dict[str, bool]
+    tools: list[MCPToolInfo]
+
+
+class N8nTriggerRequest(BaseModel):
+    workflow_id: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class N8nWorkflowsResponse(BaseModel):
+    workflows: list[dict[str, Any]]
+
+
+class N8nTriggerResponse(BaseModel):
+    result: dict[str, Any]
+
+
+class PenpotToolRequest(BaseModel):
+    action: str = Field(..., description="create_file | add_shape | export_image")
+    project_id: str | None = None
+    name: str | None = None
+    file_id: str | None = None
+    shape_type: str | None = None
+    position: dict[str, float] | None = None
+    size: dict[str, float] | None = None
+    format: str = "png"
+
+
+class AppFlowyToolRequest(BaseModel):
+    action: str = Field(..., description="create_page | append_to_page | search_pages")
+    view_id: str | None = None
+    title: str | None = None
+    content: str | None = None
+    page_id: str | None = None
+    query: str | None = None
+
+
+class PlausibleToolRequest(BaseModel):
+    action: str = Field(..., description="track_event | get_stats")
+    event_name: str | None = None
+    props: dict[str, Any] = Field(default_factory=dict)
+    period: str = "7d"
+    metrics: list[str] | None = None
+
+
+class ToolActionResponse(BaseModel):
+    result: dict[str, Any]
+
+
+class MCPOrchestrateRequest(BaseModel):
+    message: str = Field(..., min_length=1)
+    system_prompt: str | None = None
+
+
+class MCPOrchestrateResponse(BaseModel):
+    message: str
+    used_tools: bool
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)

@@ -18,7 +18,16 @@ from luthor.api.metrics import (
     stop_push_gateway,
 )
 from luthor.api.export_service import LogExportService, get_export_token
-from luthor.api.routes import ab_router, export_router, label_router, prompts_router
+from luthor.api.routes import (
+    ab_router,
+    export_router,
+    label_router,
+    mcp_router,
+    prompts_router,
+    tools_router,
+)
+from luthor.mcp.registry import get_mcp_registry, reset_mcp_registry
+from luthor.orchestrator import MCPOrchestrator
 from luthor.api.schemas import (
     ActiveLearnRequest,
     ActiveLearnResponse,
@@ -43,9 +52,12 @@ async def lifespan(app: FastAPI):
     app.state.export_service = LogExportService(app.state.log_store)
     app.state.export_token = get_export_token()
     app.state.pending_registry = get_pending_label_registry()
+    app.state.mcp_registry = get_mcp_registry()
+    app.state.orchestrator = MCPOrchestrator(registry=app.state.mcp_registry)
     start_push_gateway_if_configured()
     yield
     stop_push_gateway()
+    reset_mcp_registry()
 
 
 def create_app() -> FastAPI:
@@ -61,6 +73,8 @@ def create_app() -> FastAPI:
     application.include_router(prompts_router)
     application.include_router(ab_router)
     application.include_router(label_router)
+    application.include_router(mcp_router)
+    application.include_router(tools_router)
 
     @application.get("/metrics", include_in_schema=False)
     def metrics():

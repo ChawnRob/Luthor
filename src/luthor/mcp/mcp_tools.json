@@ -1,0 +1,167 @@
+{
+  "tools": [
+    {
+      "name": "n8n_trigger_workflow",
+      "type": "mcp",
+      "connector": "n8n",
+      "description": "Trigger an n8n automation workflow (scraping, email, CRM, webhooks).",
+      "endpoint": "/api/v1/workflows/{workflow_id}/execute",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "description": "n8n workflow identifier"
+          },
+          "payload": {
+            "type": "object",
+            "description": "JSON payload forwarded to the workflow"
+          }
+        },
+        "required": ["workflow_id"]
+      }
+    },
+    {
+      "name": "n8n_list_workflows",
+      "type": "mcp",
+      "connector": "n8n",
+      "description": "List available n8n workflows.",
+      "endpoint": "/api/v1/workflows",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "penpot_create_file",
+      "type": "mcp",
+      "connector": "penpot",
+      "description": "Create a PenPot design file in a project.",
+      "endpoint": "/api/rpc/command/create-file",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "project_id": { "type": "string" },
+          "name": { "type": "string" }
+        },
+        "required": ["project_id", "name"]
+      }
+    },
+    {
+      "name": "penpot_add_shape",
+      "type": "mcp",
+      "connector": "penpot",
+      "description": "Add a vector shape to a PenPot file.",
+      "endpoint": "/api/rpc/command/create-shape",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": { "type": "string" },
+          "shape_type": { "type": "string", "enum": ["rect", "circle", "text"] },
+          "position": {
+            "type": "object",
+            "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+          },
+          "size": {
+            "type": "object",
+            "properties": { "width": { "type": "number" }, "height": { "type": "number" } }
+          }
+        },
+        "required": ["file_id", "shape_type", "position", "size"]
+      }
+    },
+    {
+      "name": "penpot_export_image",
+      "type": "mcp",
+      "connector": "penpot",
+      "description": "Export a PenPot file as PNG or SVG.",
+      "endpoint": "/api/export",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_id": { "type": "string" },
+          "format": { "type": "string", "enum": ["png", "svg", "pdf"] }
+        },
+        "required": ["file_id", "format"]
+      }
+    },
+    {
+      "name": "appflowy_create_page",
+      "type": "mcp",
+      "connector": "appflowy",
+      "description": "Create a page in an AppFlowy workspace view.",
+      "endpoint": "/api/pages",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "view_id": { "type": "string" },
+          "title": { "type": "string" },
+          "content": { "type": "string" }
+        },
+        "required": ["view_id", "title"]
+      }
+    },
+    {
+      "name": "appflowy_append_to_page",
+      "type": "mcp",
+      "connector": "appflowy",
+      "description": "Append markdown or text content to an AppFlowy page.",
+      "endpoint": "/api/pages/{page_id}/append",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page_id": { "type": "string" },
+          "content": { "type": "string" }
+        },
+        "required": ["page_id", "content"]
+      }
+    },
+    {
+      "name": "appflowy_search_pages",
+      "type": "mcp",
+      "connector": "appflowy",
+      "description": "Search AppFlowy pages in external memory.",
+      "endpoint": "/api/pages/search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "plausible_track_event",
+      "type": "mcp",
+      "connector": "plausible",
+      "description": "Track a custom usage event in Plausible Analytics.",
+      "endpoint": "/api/v2/events",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_name": { "type": "string" },
+          "props": { "type": "object" }
+        },
+        "required": ["event_name"]
+      }
+    },
+    {
+      "name": "plausible_get_stats",
+      "type": "mcp",
+      "connector": "plausible",
+      "description": "Fetch Plausible site metrics for monitoring.",
+      "endpoint": "/api/v2/stats/aggregate",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": { "type": "string", "enum": ["7d", "30d", "month", "day"] },
+          "metrics": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["period"]
+      }
+    }
+  ]
+}

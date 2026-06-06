@@ -14,10 +14,11 @@ Environment Variables:
 - KIMI_API_KEY: Kimi API key
 """
 
+import json
 import os
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Dict, Any
-from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 
 class LLMProvider(Enum):
@@ -26,7 +27,15 @@ class LLMProvider(Enum):
     OPENAI = "openai"
     OPENROUTER = "openrouter"
     KIMI = "kimi"
+    MISTRAL = "mistral"
     LLAMA_LOCAL = "llama"  # Local fallback only
+
+
+@dataclass
+class ToolCompletionResult:
+    """Result of a tool-capable LLM completion."""
+    content: str | None = None
+    tool_calls: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -65,6 +74,11 @@ class LLMProviderFactory:
             "api_base": "https://api.moonshot.cn/v1",
             "model": "moonshot-v1-8k",
             "api_key_env": "KIMI_API_KEY",
+        },
+        LLMProvider.MISTRAL: {
+            "api_base": "https://api.mistral.ai/v1",
+            "model": "mistral-small-latest",
+            "api_key_env": "MISTRAL_API_KEY",
         },
         LLMProvider.LLAMA_LOCAL: {
             "api_base": "http://localhost:8000/v1",
@@ -141,6 +155,8 @@ class LLMProviderFactory:
             return LLMProviderFactory._create_openrouter_client(config)
         elif config.provider == LLMProvider.KIMI:
             return LLMProviderFactory._create_kimi_client(config)
+        elif config.provider == LLMProvider.MISTRAL:
+            return LLMProviderFactory._create_mistral_client(config)
         elif config.provider == LLMProvider.LLAMA_LOCAL:
             return LLMProviderFactory._create_llama_local_client(config)
         else:
@@ -176,6 +192,20 @@ class LLMProviderFactory:
     @staticmethod
     def _create_openrouter_client(config: LLMConfig) -> Any:
         """Create OpenRouter API client (OpenAI-compatible)."""
+        try:
+            from openai import OpenAI
+        except ImportError:
+            raise ImportError("OpenAI package required: pip install openai")
+
+        return OpenAI(
+            api_key=config.api_key,
+            base_url=config.api_base,
+            timeout=config.timeout,
+        )
+
+    @staticmethod
+    def _create_mistral_client(config: LLMConfig) -> Any:
+        """Create Mistral API client (OpenAI-compatible)."""
         try:
             from openai import OpenAI
         except ImportError:
@@ -266,6 +296,52 @@ class LLMInterface:
         )
 
         return response.choices[0].message.content
+
+    def complete_with_tools(
+        self,
+        prompt: str,
+        tools: list[dict[str, Any]],
+        system_prompt: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> ToolCompletionResult:
+        """Generate a completion with optional tool/function calls."""
+        messages: list[dict[str, str]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        response = self.client.chat.completions.create(
+            model=self.config.model,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            temperature=temperature or self.config.temperature,
+            max_tokens=max_tokens or self.config.max_tokens,
+        )
+
+        message = response.choices[0].message
+        tool_calls: list[dict[str, Any]] = []
+        if message.tool_calls:
+            for call in message.tool_calls:
+                arguments = call.function.arguments
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError:
+                        arguments = {"raw": arguments}
+                tool_calls.append(
+                    {
+                        "id": call.id,
+                        "name": call.function.name,
+                        "arguments": arguments,
+                    }
+                )
+
+        return ToolCompletionResult(
+            content=message.content,
+            tool_calls=tool_calls,
+        )
 
     def stream_complete(
         self,
