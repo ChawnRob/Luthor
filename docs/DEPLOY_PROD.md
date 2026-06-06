@@ -186,3 +186,9 @@ python3 -m unittest tests.test_prod_compose -v
 ```
 
 Valide la syntaxe de `docker-compose.prod.yml` et la présence de tous les services.
+
+## Références
+
+- Développement local : `docker-compose.yml`
+- Démo MCP : `docs/DEMO.md`
+- Monitoring : `docs/MONITORING.md`
