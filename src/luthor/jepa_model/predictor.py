@@ -61,3 +61,26 @@ class Predictor(nn.Module):
 
         output = self.output_network(x)
         return output.squeeze(0) if output.shape[0] == 1 else output
+
+    def predict_with_uncertainty(
+        self,
+        latent_state: torch.Tensor,
+        action: torch.Tensor,
+        num_samples: int = 10,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Estimate latent prediction mean and variance via MC dropout."""
+        was_training = self.training
+        self.train()
+
+        samples: list[torch.Tensor] = []
+        with torch.no_grad():
+            for _ in range(num_samples):
+                samples.append(self.forward(latent_state, action))
+
+        if not was_training:
+            self.eval()
+
+        stacked = torch.stack(samples)
+        mean = stacked.mean(dim=0)
+        variance = stacked.var(dim=0, unbiased=False)
+        return mean, variance

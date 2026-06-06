@@ -55,6 +55,18 @@ class LoggingConfig:
 
 
 @dataclass
+class ActiveLearningConfig:
+    """Active learning loop configuration (JEPA SLM skeleton)."""
+    num_rounds: int = 10
+    pool_size: int = 32
+    query_batch_size: int = 8
+    mc_samples: int = 10
+    train_steps_per_round: int = 5
+    input_dim: int = 2
+    action_dim: int = 2
+
+
+@dataclass
 class LuthorConfig:
     """Main Luthor configuration."""
     encoder: EncoderConfig
@@ -62,6 +74,7 @@ class LuthorConfig:
     planner: PlannerConfig
     visualization: VisualizationConfig
     logging: LoggingConfig
+    active_learning: ActiveLearningConfig
     debug: bool = False
 
     @staticmethod
@@ -100,6 +113,15 @@ class LuthorConfig:
                     "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
                 ),
             ),
+            active_learning=ActiveLearningConfig(
+                num_rounds=int(os.getenv("LUTHOR_AL_ROUNDS", "10")),
+                pool_size=int(os.getenv("LUTHOR_AL_POOL_SIZE", "32")),
+                query_batch_size=int(os.getenv("LUTHOR_AL_QUERY_BATCH", "8")),
+                mc_samples=int(os.getenv("LUTHOR_AL_MC_SAMPLES", "10")),
+                train_steps_per_round=int(os.getenv("LUTHOR_AL_TRAIN_STEPS", "5")),
+                input_dim=int(os.getenv("LUTHOR_AL_INPUT_DIM", "2")),
+                action_dim=int(os.getenv("LUTHOR_AL_ACTION_DIM", "2")),
+            ),
             debug=os.getenv("DEBUG", "false").lower() == "true",
         )
 
@@ -134,6 +156,15 @@ class LuthorConfig:
                 "level": self.logging.level,
                 "log_file": self.logging.log_file,
                 "format": self.logging.format,
+            },
+            "active_learning": {
+                "num_rounds": self.active_learning.num_rounds,
+                "pool_size": self.active_learning.pool_size,
+                "query_batch_size": self.active_learning.query_batch_size,
+                "mc_samples": self.active_learning.mc_samples,
+                "train_steps_per_round": self.active_learning.train_steps_per_round,
+                "input_dim": self.active_learning.input_dim,
+                "action_dim": self.active_learning.action_dim,
             },
             "debug": self.debug,
         }

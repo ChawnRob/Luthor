@@ -47,8 +47,12 @@ from luthor.deepseek_integration import (
     get_deepseek,
 )
 
+# Active learning (JEPA SLM skeleton)
+from luthor.active_learning import ActiveLearningLoop, DummyOracle, UncertaintySampler
+
 # Configuration
 from luthor.config import (
+    ActiveLearningConfig,
     LuthorConfig,
     EncoderConfig,
     PredictorConfig,
@@ -81,7 +85,12 @@ __all__ = [
     "DeepSeekIntegration",
     "DeepSeekConfig",
     "get_deepseek",
+    # Active learning
+    "ActiveLearningLoop",
+    "DummyOracle",
+    "UncertaintySampler",
     # Configuration
+    "ActiveLearningConfig",
     "LuthorConfig",
     "EncoderConfig",
     "PredictorConfig",
