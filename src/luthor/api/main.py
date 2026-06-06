@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException, Request
+
+from luthor.api.schemas import (
+    ActiveLearnRequest,
+    ActiveLearnResponse,
+    ActiveLearnRoundResponse,
+    EmbedRequest,
+    EmbedResponse,
+    HealthResponse,
+    PredictRequest,
+    PredictResponse,
+)
+from luthor.api.services import JEPAService
+from luthor.api.storage import EmbeddingStore, InferenceLogStore
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.jepa_service = JEPAService()
+    app.state.log_store = InferenceLogStore()
+    app.state.embedding_store = EmbeddingStore()
+    yield
+
+
+def create_app() -> FastAPI:
+    application = FastAPI(
+        title="Luthor JEPA API",
+        description="FastAPI wrapper for JEPA SLM embedding, prediction, and active learning.",
+        version="1.0.0",
+        lifespan=lifespan,
+    )
+
+    @application.get("/health", response_model=HealthResponse)
+    def health(request: Request) -> HealthResponse:
+        postgres_status = "ok"
+        chroma_status = "ok"
+
+        try:
+            request.app.state.log_store.ping()
+        except Exception as exc:  # pragma: no cover - depends on docker services
+            postgres_status = f"error: {exc}"
+
+        try:
+            request.app.state.embedding_store.ping()
+        except Exception as exc:  # pragma: no cover - depends on docker services
+            chroma_status = f"error: {exc}"
+
+        overall = "ok" if postgres_status == "ok" and chroma_status == "ok" else "degraded"
+        return HealthResponse(
+            status=overall,
+            postgres=postgres_status,
+            chromadb=chroma_status,
+            model_loaded=request.app.state.jepa_service is not None,
+        )
+
+    @application.post("/embed", response_model=EmbedResponse)
+    def embed(payload: EmbedRequest, request: Request) -> EmbedResponse:
+        service: JEPAService = request.app.state.jepa_service
+        log_store: InferenceLogStore = request.app.state.log_store
+        embedding_store: EmbeddingStore = request.app.state.embedding_store
+
+        try:
+            embedding_id, embedding = service.embed(payload.observation)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        response = EmbedResponse(
+            embedding_id=embedding_id,
+            embedding=embedding,
+            latent_dim=len(embedding),
+        )
+
+        try:
+            embedding_store.add_embedding(
+                embedding_id,
+                embedding,
+                metadata={"observation": payload.observation},
+            )
+            log_store.log_inference(
+                endpoint="/embed",
+                request_payload=payload.model_dump(),
+                response_payload=response.model_dump(),
+                metadata={"embedding_id": embedding_id},
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Storage unavailable: {exc}",
+            ) from exc
+
+        return response
+
+    @application.post("/predict", response_model=PredictResponse)
+    def predict(payload: PredictRequest, request: Request) -> PredictResponse:
+        service: JEPAService = request.app.state.jepa_service
+        log_store: InferenceLogStore = request.app.state.log_store
+
+        try:
+            result = service.predict(payload.observation, payload.action, payload.mc_samples)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        response = PredictResponse(
+            predicted_latent=result["predicted_latent"],  # type: ignore[arg-type]
+            uncertainty=result["uncertainty"],  # type: ignore[arg-type]
+            latent_variance=result["latent_variance"],  # type: ignore[arg-type]
+        )
+
+        try:
+            log_store.log_inference(
+                endpoint="/predict",
+                request_payload=payload.model_dump(),
+                response_payload=response.model_dump(),
+                metadata={"uncertainty": response.uncertainty},
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Storage unavailable: {exc}",
+            ) from exc
+
+        return response
+
+    @application.post("/active_learn", response_model=ActiveLearnResponse)
+    def active_learn(payload: ActiveLearnRequest, request: Request) -> ActiveLearnResponse:
+        service: JEPAService = request.app.state.jepa_service
+        log_store: InferenceLogStore = request.app.state.log_store
+
+        try:
+            results = service.active_learn(
+                num_rounds=payload.num_rounds,
+                pool_size=payload.pool_size,
+                query_batch_size=payload.query_batch_size,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        rounds = [
+            ActiveLearnRoundResponse(
+                round_index=result.round_index,
+                mean_uncertainty=result.mean_uncertainty,
+                mean_loss=result.mean_loss,
+                queried=result.queried,
+            )
+            for result in results
+        ]
+        final_mean_loss = rounds[-1].mean_loss if rounds else 0.0
+        response = ActiveLearnResponse(rounds=rounds, final_mean_loss=final_mean_loss)
+
+        try:
+            for result in results:
+                log_store.log_active_learning_round(
+                    round_index=result.round_index,
+                    mean_uncertainty=result.mean_uncertainty,
+                    mean_loss=result.mean_loss,
+                    queried=result.queried,
+                    metadata=payload.model_dump(),
+                )
+            log_store.log_inference(
+                endpoint="/active_learn",
+                request_payload=payload.model_dump(),
+                response_payload=response.model_dump(),
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Storage unavailable: {exc}",
+            ) from exc
+
+        return response
+
+    return application
+
+
+app = create_app()

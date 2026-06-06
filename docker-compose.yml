@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: luthor
+      POSTGRES_PASSWORD: luthor
+      POSTGRES_DB: luthor
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luthor -d luthor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  chromadb:
+    image: chromadb/chroma:0.5.5
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/heartbeat')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      LUTHOR_POSTGRES_URL: postgresql://luthor:luthor@postgres:5432/luthor
+      LUTHOR_CHROMA_HOST: chromadb
+      LUTHOR_CHROMA_PORT: 8000
+      LUTHOR_ENCODER_LATENT_DIM: "16"
+      LUTHOR_PLANNER_LR: "0.01"
+      LUTHOR_AL_ROUNDS: "3"
+      LUTHOR_AL_POOL_SIZE: "8"
+      LUTHOR_AL_QUERY_BATCH: "3"
+      LUTHOR_AL_MC_SAMPLES: "3"
+      LUTHOR_AL_TRAIN_STEPS: "2"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  chroma_data:
