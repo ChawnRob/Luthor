@@ -37,11 +37,17 @@ class MockUserStore:
     def get_monthly_complex_tasks(self, user_id: str, month_start=None) -> int:
         return 0
 
-    def increment_api_call(self, user_id: str) -> int:
-        return 1
+    def increment_api_call(self, user_id: str, weight: int = 1) -> int:
+        return weight
 
     def increment_complex_task(self, user_id: str) -> int:
         return 1
+
+    def list_tool_sync(self):
+        return []
+
+    def record_tool_sync(self, *args, **kwargs) -> None:
+        return None
 
     def set_mfa_enabled(self, user_id: str, enabled: bool) -> None:
         return None
@@ -117,6 +123,22 @@ class AuthTests(unittest.TestCase):
     def test_oauth_google_url_without_supabase(self):
         response = self.client.get("/auth/oauth/google/url")
         self.assertEqual(response.status_code, 503)
+
+    @patch("luthor.api.routes.auth.get_supabase_auth_service")
+    def test_refresh_returns_token(self, mock_service):
+        mock_service.return_value = MagicMock()
+        mock_service.return_value.refresh_token.return_value = {
+            "access_token": "new-abc",
+            "refresh_token": "new-def",
+            "expires_in": 3600,
+            "user": {"id": TEST_USER_ID, "email": "user@example.com", "user_metadata": {}},
+        }
+        response = self.client.post(
+            "/auth/refresh",
+            json={"refresh_token": "old-refresh-token-value"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["access_token"], "new-abc")
 
     @patch("luthor.api.routes.auth.get_supabase_auth_service")
     def test_signin_returns_token(self, mock_service):

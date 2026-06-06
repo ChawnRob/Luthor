@@ -125,27 +125,28 @@ class UserStore:
                 row = cur.fetchone()
         return int(row[0]) if row else 0
 
-    def increment_api_call(self, user_id: str) -> int:
+    def increment_api_call(self, user_id: str, weight: int = 1) -> int:
+        weight = max(int(weight), 1)
         today = datetime.now(timezone.utc).date()
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     INSERT INTO usage_daily (user_id, usage_date, api_calls)
-                    VALUES (%s, %s, 1)
+                    VALUES (%s, %s, %s)
                     ON CONFLICT (user_id, usage_date) DO UPDATE SET
-                        api_calls = usage_daily.api_calls + 1
+                        api_calls = usage_daily.api_calls + %s
                     RETURNING api_calls
                     """,
-                    (user_id, today),
+                    (user_id, today, weight, weight),
                 )
                 daily = int(cur.fetchone()[0])
                 cur.execute(
                     """
-                    UPDATE users SET usage_count = usage_count + 1, updated_at = NOW()
+                    UPDATE users SET usage_count = usage_count + %s, updated_at = NOW()
                     WHERE id = %s
                     """,
-                    (user_id,),
+                    (weight, user_id),
                 )
             conn.commit()
         return daily

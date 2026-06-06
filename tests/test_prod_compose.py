@@ -95,6 +95,11 @@ class ProdComposeTests(unittest.TestCase):
         self.assertTrue(script.exists())
         self.assertTrue(os.access(script, os.X_OK))
 
+    def test_restore_script_exists(self):
+        script = ROOT / "scripts" / "restore_prod.sh"
+        self.assertTrue(script.exists())
+        self.assertTrue(os.access(script, os.X_OK))
+
 
 if __name__ == "__main__":
     sys.path.insert(0, str(ROOT / "src"))

@@ -21,10 +21,15 @@ def tier_limits(config: LuthorConfig, tier: str) -> QuotaTierLimits:
     return config.quotas.limits_for(tier)
 
 
+def endpoint_weight(config: LuthorConfig, tier: str, path: str) -> int:
+    return tier_limits(config, tier).weight_for_path(path)
+
+
 def check_and_increment_usage(
     request: Request,
     user: UserRecord,
     *,
+    path: str = "/",
     is_complex: bool = False,
 ) -> dict[str, int | str]:
     config: LuthorConfig = request.app.state.config
@@ -54,7 +59,8 @@ def check_and_increment_usage(
             detail=f"Storage quota exceeded ({limits.max_storage_mb} MB)",
         )
 
-    new_daily = store.increment_api_call(user.id)
+    weight = endpoint_weight(config, user.quota_tier, path)
+    new_daily = store.increment_api_call(user.id, weight=weight)
     new_complex = monthly_complex
     if is_complex:
         new_complex = store.increment_complex_task(user.id)
@@ -67,6 +73,7 @@ def check_and_increment_usage(
         "complex_tasks_limit": limits.max_complex_tasks_per_month,
         "storage_used_mb": int(user.storage_used_mb),
         "storage_limit_mb": limits.max_storage_mb,
+        "last_request_weight": weight,
     }
 
 

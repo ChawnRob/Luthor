@@ -67,6 +67,17 @@ class SupabaseAuthService:
         }
         return f"{self.url}/auth/v1/authorize?{urlencode(params)}"
 
+    def refresh_token(self, refresh_token: str) -> dict[str, Any]:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                f"{self.url}/auth/v1/token?grant_type=refresh_token",
+                headers=self._headers(),
+                json={"refresh_token": refresh_token},
+            )
+        if response.status_code >= 400:
+            raise ValueError(_extract_error(response))
+        return response.json()
+
     def mfa_enroll(self, access_token: str) -> dict[str, Any]:
         with httpx.Client(timeout=30.0) as client:
             response = client.post(

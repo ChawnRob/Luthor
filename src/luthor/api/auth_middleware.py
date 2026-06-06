@@ -67,6 +67,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             request.state.quota = check_and_increment_usage(
                 request,
                 user,
+                path=path,
                 is_complex=is_complex_endpoint(path),
             )
         except HTTPException as exc:

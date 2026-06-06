@@ -3,8 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getPendingLabels, submitLabel, type PendingLabelItem } from "@/lib/api";
-import { Check, RefreshCw, X } from "lucide-react";
+import { getApiUrl, getPendingLabels, submitLabel, type PendingLabelItem } from "@/lib/api";
+import { Check, ExternalLink, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -68,10 +68,18 @@ export default function ActiveLearning() {
           {pending.length} label{pending.length !== 1 ? "s" : ""} restant
           {pending.length !== 1 ? "s" : ""}
         </Badge>
-        <Button variant="outline" size="sm" onClick={() => void refresh()}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Rafraîchir
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href={`${getApiUrl()}/label-ui`} target="_blank" rel="noreferrer">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Interface legacy
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void refresh()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Rafraîchir
+          </Button>
+        </div>
       </div>
 
       {loading ? (

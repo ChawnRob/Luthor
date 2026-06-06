@@ -298,6 +298,10 @@ class AuthSigninRequest(BaseModel):
     password: str
 
 
+class AuthRefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=10)
+
+
 class AuthTokenResponse(BaseModel):
     access_token: str
     refresh_token: str | None = None

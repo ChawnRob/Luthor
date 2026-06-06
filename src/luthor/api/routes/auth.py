@@ -10,6 +10,7 @@ from luthor.api.schemas import (
     AuthMfaEnableRequest,
     AuthMfaEnableResponse,
     AuthOAuthResponse,
+    AuthRefreshRequest,
     AuthSigninRequest,
     AuthSignupRequest,
     AuthTokenResponse,
@@ -100,6 +101,21 @@ def oauth_apple_url():
     if service is None:
         raise HTTPException(status_code=503, detail="Supabase auth is not configured")
     return AuthOAuthResponse(provider="apple", authorization_url=service.oauth_authorize_url("apple"))
+
+
+@router.post("/refresh", response_model=AuthTokenResponse)
+def refresh_session(payload: AuthRefreshRequest, request: Request) -> AuthTokenResponse:
+    service = get_supabase_auth_service()
+    if service is None:
+        raise HTTPException(status_code=503, detail="Supabase auth is not configured")
+
+    store: UserStore = request.app.state.user_store
+    try:
+        result = service.refresh_token(payload.refresh_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    return _token_response(result, store)
 
 
 @router.post("/mfa/enable", response_model=AuthMfaEnableResponse)

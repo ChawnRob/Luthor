@@ -154,6 +154,25 @@ class QuotaTierLimits:
     max_api_calls_per_day: int = 50
     max_complex_tasks_per_month: int = 5
     max_storage_mb: int = 10
+    endpoint_weights: dict[str, int] = field(
+        default_factory=lambda: {
+            "/embed": 1,
+            "/predict": 2,
+            "/active_learn": 5,
+            "/mcp/orchestrate": 5,
+            "/demo/full": 5,
+            "/tools/": 3,
+            "default": 1,
+        }
+    )
+
+    def weight_for_path(self, path: str) -> int:
+        for prefix, weight in self.endpoint_weights.items():
+            if prefix == "default":
+                continue
+            if path.startswith(prefix):
+                return weight
+        return int(self.endpoint_weights.get("default", 1))
 
 
 @dataclass
@@ -239,9 +258,21 @@ class LuthorConfig:
         grid_cfg = params.get("gridworld", {})
         gen_cfg = params.get("generalization", {})
         quotas_cfg = params.get("quotas", {})
+
+        def _quota_limits(raw: dict | None) -> QuotaTierLimits:
+            if not raw:
+                return QuotaTierLimits()
+            payload = dict(raw)
+            weights = payload.pop("endpoint_weights", None)
+            allowed = {k for k in QuotaTierLimits.__dataclass_fields__ if k != "endpoint_weights"}
+            limits = QuotaTierLimits(**{k: payload[k] for k in allowed if k in payload})
+            if weights:
+                limits.endpoint_weights = {**limits.endpoint_weights, **weights}
+            return limits
+
         quotas = QuotasConfig(
-            free=QuotaTierLimits(**quotas_cfg.get("free", {})) if quotas_cfg.get("free") else QuotaTierLimits(),
-            pro=QuotaTierLimits(**quotas_cfg.get("pro", {})) if quotas_cfg.get("pro") else QuotasConfig().pro,
+            free=_quota_limits(quotas_cfg.get("free")),
+            pro=_quota_limits(quotas_cfg.get("pro")) if quotas_cfg.get("pro") else QuotasConfig().pro,
         )
 
         mcp_cfg = params.get("mcp", {})
@@ -653,14 +684,18 @@ def _merge_params_into_config(config: LuthorConfig, params: dict) -> LuthorConfi
     if quotas_cfg:
         if free_cfg := quotas_cfg.get("free"):
             merged = {**config.quotas.free.__dict__, **free_cfg}
-            config.quotas.free = QuotaTierLimits(
-                **{k: merged[k] for k in QuotaTierLimits.__dataclass_fields__}
-            )
+            allowed = {k for k in QuotaTierLimits.__dataclass_fields__ if k != "endpoint_weights"}
+            free_limits = QuotaTierLimits(**{k: merged[k] for k in allowed})
+            if weights := free_cfg.get("endpoint_weights"):
+                free_limits.endpoint_weights = {**free_limits.endpoint_weights, **weights}
+            config.quotas.free = free_limits
         if pro_cfg := quotas_cfg.get("pro"):
             merged = {**config.quotas.pro.__dict__, **pro_cfg}
-            config.quotas.pro = QuotaTierLimits(
-                **{k: merged[k] for k in QuotaTierLimits.__dataclass_fields__}
-            )
+            allowed = {k for k in QuotaTierLimits.__dataclass_fields__ if k != "endpoint_weights"}
+            pro_limits = QuotaTierLimits(**{k: merged[k] for k in allowed})
+            if weights := pro_cfg.get("endpoint_weights"):
+                pro_limits.endpoint_weights = {**pro_limits.endpoint_weights, **weights}
+            config.quotas.pro = pro_limits
 
     mcp_cfg = params.get("mcp", {})
     if mcp_cfg:
