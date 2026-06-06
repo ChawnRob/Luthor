@@ -55,3 +55,26 @@ class HealthResponse(BaseModel):
 class ErrorResponse(BaseModel):
     detail: str
     metadata: dict[str, Any] | None = None
+
+
+class PromptVersionResponse(BaseModel):
+    name: str
+    version: str
+    content: str
+
+
+class PromptListResponse(BaseModel):
+    prompts: list[PromptVersionResponse]
+
+
+class ABVersionMetrics(BaseModel):
+    calls: int
+    mean_uncertainty: float | None = None
+    mean_loss: float | None = None
+    success_rate: float | None = None
+
+
+class ABMetricsResponse(BaseModel):
+    window_hours: int
+    versions: dict[str, ABVersionMetrics]
+    winner: str | None = None

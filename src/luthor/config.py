@@ -6,7 +6,8 @@ Loads configuration from environment variables and provides sensible defaults.
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 
@@ -64,6 +65,19 @@ class ActiveLearningConfig:
     train_steps_per_round: int = 5
     input_dim: int = 2
     action_dim: int = 2
+    human_in_loop: bool = False
+
+
+@dataclass
+class ABTestingConfig:
+    """A/B testing configuration for model variants."""
+    enabled: bool = False
+    models: dict[str, str] = field(
+        default_factory=lambda: {
+            "default": "models/jepa_model.pth",
+            "candidate": "models/jepa_model_v2.pth",
+        }
+    )
 
 
 @dataclass
@@ -86,6 +100,8 @@ class LuthorConfig:
     logging: LoggingConfig
     active_learning: ActiveLearningConfig
     memory: MemoryConfig
+    ab_testing: ABTestingConfig
+    prompt_version: str = "v1"
     debug: bool = False
 
     @staticmethod
@@ -94,6 +110,8 @@ class LuthorConfig:
         logging_cfg = params.get("logging", {})
 
         memory_cfg = params.get("memory", {})
+        ab_cfg = params.get("ab_testing", {})
+        ab_models = ab_cfg.get("models", {})
 
         return LuthorConfig(
             encoder=EncoderConfig(**params["encoder"]),
@@ -103,6 +121,14 @@ class LuthorConfig:
             logging=LoggingConfig(**logging_cfg),
             active_learning=ActiveLearningConfig(**params["active_learning"]),
             memory=MemoryConfig(**memory_cfg),
+            ab_testing=ABTestingConfig(
+                enabled=bool(ab_cfg.get("enabled", False)),
+                models={
+                    "default": ab_models.get("default", "models/jepa_model.pth"),
+                    "candidate": ab_models.get("candidate", "models/jepa_model_v2.pth"),
+                },
+            ),
+            prompt_version=str(params.get("prompt_version", "v1")),
             debug=params.get("debug", False),
         )
 
@@ -150,7 +176,16 @@ class LuthorConfig:
                 train_steps_per_round=int(os.getenv("LUTHOR_AL_TRAIN_STEPS", "5")),
                 input_dim=int(os.getenv("LUTHOR_AL_INPUT_DIM", "2")),
                 action_dim=int(os.getenv("LUTHOR_AL_ACTION_DIM", "2")),
+                human_in_loop=os.getenv("LUTHOR_HUMAN_IN_LOOP", "false").lower() == "true",
             ),
+            ab_testing=ABTestingConfig(
+                enabled=os.getenv("LUTHOR_AB_TESTING_ENABLED", "false").lower() == "true",
+                models={
+                    "default": os.getenv("LUTHOR_AB_MODEL_DEFAULT", "models/jepa_model.pth"),
+                    "candidate": os.getenv("LUTHOR_AB_MODEL_CANDIDATE", "models/jepa_model_v2.pth"),
+                },
+            ),
+            prompt_version=os.getenv("LUTHOR_PROMPT_VERSION", "v1"),
             memory=MemoryConfig(
                 use_context_compression=os.getenv(
                     "LUTHOR_USE_CONTEXT_COMPRESSION", "false"
@@ -204,7 +239,13 @@ class LuthorConfig:
                 "train_steps_per_round": self.active_learning.train_steps_per_round,
                 "input_dim": self.active_learning.input_dim,
                 "action_dim": self.active_learning.action_dim,
+                "human_in_loop": self.active_learning.human_in_loop,
             },
+            "ab_testing": {
+                "enabled": self.ab_testing.enabled,
+                "models": self.ab_testing.models,
+            },
+            "prompt_version": self.prompt_version,
             "memory": {
                 "use_context_compression": self.memory.use_context_compression,
                 "history_length": self.memory.history_length,
@@ -220,11 +261,54 @@ class LuthorConfig:
 _config: Optional[LuthorConfig] = None
 
 
+def _default_params_path() -> Path | None:
+    override = os.getenv("LUTHOR_PARAMS_PATH")
+    if override:
+        path = Path(override)
+        return path if path.exists() else None
+
+    repo_root = Path(__file__).resolve().parents[2]
+    candidate = repo_root / "params.yaml"
+    return candidate if candidate.exists() else None
+
+
+def _merge_params_into_config(config: LuthorConfig, params: dict) -> LuthorConfig:
+    config.prompt_version = str(params.get("prompt_version", config.prompt_version))
+
+    ab_cfg = params.get("ab_testing", {})
+    if ab_cfg:
+        config.ab_testing.enabled = bool(ab_cfg.get("enabled", config.ab_testing.enabled))
+        models = ab_cfg.get("models", {})
+        if models:
+            config.ab_testing.models = {
+                "default": models.get("default", config.ab_testing.models["default"]),
+                "candidate": models.get("candidate", config.ab_testing.models["candidate"]),
+            }
+
+    al_cfg = params.get("active_learning", {})
+    if "human_in_loop" in al_cfg:
+        config.active_learning.human_in_loop = bool(al_cfg["human_in_loop"])
+
+    return config
+
+
 def get_config() -> LuthorConfig:
     """Get the global Luthor configuration."""
     global _config
     if _config is None:
         _config = LuthorConfig.from_env()
+        params_path = _default_params_path()
+        if params_path is not None:
+            from luthor.pipeline.params import load_params
+
+            _config = _merge_params_into_config(_config, load_params(params_path))
+
+        if os.getenv("LUTHOR_AB_TESTING_ENABLED") is not None:
+            _config.ab_testing.enabled = (
+                os.getenv("LUTHOR_AB_TESTING_ENABLED", "false").lower() == "true"
+            )
+        if os.getenv("LUTHOR_PROMPT_VERSION") is not None:
+            _config.prompt_version = os.getenv("LUTHOR_PROMPT_VERSION", "v1")
     return _config
 
 

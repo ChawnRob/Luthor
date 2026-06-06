@@ -1,5 +1,7 @@
 seed: 42
 
+prompt_version: v1
+
 gridworld:
   state_dim: 2
   action_dim: 2
@@ -42,6 +44,13 @@ active_learning:
   train_steps_per_round: 3
   input_dim: 2
   action_dim: 2
+  human_in_loop: false
+
+ab_testing:
+  enabled: true
+  models:
+    default: "models/jepa_model.pth"
+    candidate: "models/jepa_model_v2.pth"
 
 visualization:
   enabled: false

@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS inference_logs (
     request_payload JSONB NOT NULL,
     response_payload JSONB NOT NULL,
     metadata JSONB,
+    model_version VARCHAR(32) NOT NULL DEFAULT 'default',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

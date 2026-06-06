@@ -12,6 +12,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class MockInferenceLogStore:
+    def ensure_schema(self) -> None:
+        return None
+
     def __init__(self):
         self.rows = [
             {

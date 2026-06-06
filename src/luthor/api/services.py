@@ -6,6 +6,7 @@ import torch
 import torch.optim as optim
 
 from luthor.active_learning.loop import ActiveLearningLoop, ActiveLearningRoundResult
+from luthor.api.model_cache import ModelCache
 from luthor.config import ActiveLearningConfig, LuthorConfig, get_config
 from luthor.jepa_model.world_model import WorldModel
 
@@ -17,15 +18,10 @@ class JEPAService:
         self.config = config or get_config()
         self.input_dim = self.config.active_learning.input_dim
         self.action_dim = self.config.active_learning.action_dim
+        self.model_cache = ModelCache(self.config)
 
-        self.world_model = WorldModel(
-            self.input_dim,
-            self.action_dim,
-            encoder_config=self.config.encoder,
-            predictor_config=self.config.predictor,
-            memory_config=self.config.memory,
-            latent_dim=self.config.encoder.latent_dim,
-        )
+        default_model, _ = self.model_cache.get_world_model("default")
+        self.world_model = default_model
         self.world_model.eval()
 
         self.optimizer = optim.Adam(
@@ -44,26 +40,35 @@ class JEPAService:
             raise ValueError(f"{label} must have length {expected_dim}, got {tensor.numel()}")
         return tensor
 
-    def embed(self, observation: list[float]) -> tuple[str, list[float]]:
+    def embed(
+        self,
+        observation: list[float],
+        *,
+        model_version: str | None = None,
+    ) -> tuple[str, list[float], str]:
+        world_model, resolved_version = self.model_cache.get_world_model(model_version)
         obs = self._to_tensor(observation, self.input_dim, "observation")
         with torch.no_grad():
-            latent = self.world_model.encode(obs)
+            latent = world_model.encode(obs)
         embedding_id = str(uuid.uuid4())
-        return embedding_id, latent.detach().cpu().tolist()
+        return embedding_id, latent.detach().cpu().tolist(), resolved_version
 
     def predict(
         self,
         observation: list[float],
         action: list[float],
         mc_samples: int | None = None,
-    ) -> dict[str, list[float] | float]:
+        *,
+        model_version: str | None = None,
+    ) -> dict[str, list[float] | float | str]:
+        world_model, resolved_version = self.model_cache.get_world_model(model_version)
         obs = self._to_tensor(observation, self.input_dim, "observation")
         act = self._to_tensor(action, self.action_dim, "action")
         samples = mc_samples or self.config.active_learning.mc_samples
 
         with torch.no_grad():
-            latent = self.world_model.encode(obs)
-            mean, variance = self.world_model.predictor.predict_with_uncertainty(
+            latent = world_model.encode(obs)
+            mean, variance = world_model.predictor.predict_with_uncertainty(
                 latent,
                 act,
                 num_samples=samples,
@@ -74,6 +79,7 @@ class JEPAService:
             "predicted_latent": mean.detach().cpu().tolist(),
             "uncertainty": uncertainty,
             "latent_variance": variance.detach().cpu().tolist(),
+            "model_version": resolved_version,
         }
 
     def active_learn(
@@ -90,6 +96,7 @@ class JEPAService:
             train_steps_per_round=self.config.active_learning.train_steps_per_round,
             input_dim=self.config.active_learning.input_dim,
             action_dim=self.config.active_learning.action_dim,
+            human_in_loop=self.config.active_learning.human_in_loop,
         )
 
         loop = ActiveLearningLoop(

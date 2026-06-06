@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import torch
 import torch.optim as optim
 
+from luthor.active_learning.human_oracle import HumanLabelOracle
 from luthor.active_learning.oracle import DummyOracle
 from luthor.active_learning.sampler import UncertaintySampler
 from luthor.config import ActiveLearningConfig, LuthorConfig
@@ -56,8 +57,16 @@ class ActiveLearningLoop:
             self.world_model.parameters(),
             lr=config.planner.learning_rate,
         )
-        self.oracle = oracle or DummyOracle(env=self.env)
+        self.oracle = oracle or self._build_oracle()
         self.sampler = UncertaintySampler(self.world_model, self.al_config)
+
+    def _build_oracle(self) -> DummyOracle | HumanLabelOracle:
+        if self.al_config.human_in_loop:
+            return HumanLabelOracle(
+                env=self.env,
+                prompt_version=self.config.prompt_version,
+            )
+        return DummyOracle(env=self.env)
 
     def build_pool(self) -> list[tuple[torch.Tensor, torch.Tensor]]:
         pool: list[tuple[torch.Tensor, torch.Tensor]] = []

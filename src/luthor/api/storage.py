@@ -27,11 +27,23 @@ class InferenceLogStore:
         return psycopg2.connect(self.database_url)
 
     def ping(self) -> bool:
+        self.ensure_schema()
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
                 cur.fetchone()
         return True
+
+    def ensure_schema(self) -> None:
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    ALTER TABLE inference_logs
+                    ADD COLUMN IF NOT EXISTS model_version VARCHAR(32) DEFAULT 'default'
+                    """
+                )
+            conn.commit()
 
     def log_inference(
         self,
@@ -39,20 +51,57 @@ class InferenceLogStore:
         request_payload: dict[str, Any],
         response_payload: dict[str, Any],
         metadata: dict[str, Any] | None = None,
+        *,
+        model_version: str = "default",
     ) -> int:
+        self.ensure_schema()
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO inference_logs (endpoint, request_payload, response_payload, metadata)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO inference_logs
+                        (endpoint, request_payload, response_payload, metadata, model_version)
+                    VALUES (%s, %s, %s, %s, %s)
                     RETURNING id
                     """,
-                    (endpoint, Json(request_payload), Json(response_payload), Json(metadata or {})),
+                    (
+                        endpoint,
+                        Json(request_payload),
+                        Json(response_payload),
+                        Json(metadata or {}),
+                        model_version,
+                    ),
                 )
                 row_id = cur.fetchone()[0]
             conn.commit()
         return int(row_id)
+
+    def fetch_ab_metrics(self, *, window_hours: int = 24) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        with self._connect() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        COALESCE(model_version, 'default') AS model_version,
+                        COUNT(*) AS calls,
+                        AVG(
+                            COALESCE(
+                                (metadata->>'uncertainty')::double precision,
+                                (response_payload->>'uncertainty')::double precision
+                            )
+                        ) AS mean_uncertainty,
+                        AVG((metadata->>'loss')::double precision) AS mean_loss,
+                        AVG((metadata->>'success_rate')::double precision) AS success_rate
+                    FROM inference_logs
+                    WHERE created_at >= NOW() - (%s || ' hours')::interval
+                      AND endpoint IN ('/predict', '/embed')
+                    GROUP BY COALESCE(model_version, 'default')
+                    """,
+                    (str(window_hours),),
+                )
+                rows = cur.fetchall()
+        return [dict(row) for row in rows]
 
     def log_active_learning_round(
         self,

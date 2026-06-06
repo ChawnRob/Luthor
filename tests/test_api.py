@@ -12,6 +12,9 @@ class MockInferenceLogStore:
     def ping(self) -> bool:
         return True
 
+    def ensure_schema(self) -> None:
+        return None
+
     def log_inference(self, **kwargs) -> int:
         return 1
 
@@ -48,6 +51,7 @@ class ApiTests(unittest.TestCase):
         os.environ["LUTHOR_AL_QUERY_BATCH"] = "2"
         os.environ["LUTHOR_AL_MC_SAMPLES"] = "2"
         os.environ["LUTHOR_AL_TRAIN_STEPS"] = "1"
+        os.environ["LUTHOR_AB_TESTING_ENABLED"] = "false"
 
         from luthor.config import reset_config
 

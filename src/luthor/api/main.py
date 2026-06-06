@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 
 from luthor.api.export_service import LogExportService, get_export_token
-from luthor.api.routes import export_router
+from luthor.api.routes import ab_router, export_router, prompts_router
 from luthor.api.schemas import (
     ActiveLearnRequest,
     ActiveLearnResponse,
@@ -18,11 +18,13 @@ from luthor.api.schemas import (
 )
 from luthor.api.services import JEPAService
 from luthor.api.storage import EmbeddingStore, InferenceLogStore
+from luthor.config import get_config
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.jepa_service = JEPAService()
+    app.state.config = get_config()
+    app.state.jepa_service = JEPAService(app.state.config)
     app.state.log_store = InferenceLogStore()
     app.state.embedding_store = EmbeddingStore()
     app.state.export_service = LogExportService(app.state.log_store)
@@ -39,6 +41,8 @@ def create_app() -> FastAPI:
     )
 
     application.include_router(export_router)
+    application.include_router(prompts_router)
+    application.include_router(ab_router)
 
     @application.get("/health", response_model=HealthResponse)
     def health(request: Request) -> HealthResponse:
@@ -64,13 +68,20 @@ def create_app() -> FastAPI:
         )
 
     @application.post("/embed", response_model=EmbedResponse)
-    def embed(payload: EmbedRequest, request: Request) -> EmbedResponse:
+    def embed(
+        payload: EmbedRequest,
+        request: Request,
+        x_model_version: str | None = Header(default=None, alias="X-Model-Version"),
+    ) -> EmbedResponse:
         service: JEPAService = request.app.state.jepa_service
         log_store: InferenceLogStore = request.app.state.log_store
         embedding_store: EmbeddingStore = request.app.state.embedding_store
 
         try:
-            embedding_id, embedding = service.embed(payload.observation)
+            embedding_id, embedding, model_version = service.embed(
+                payload.observation,
+                model_version=x_model_version,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -91,6 +102,7 @@ def create_app() -> FastAPI:
                 request_payload=payload.model_dump(),
                 response_payload=response.model_dump(),
                 metadata={"embedding_id": embedding_id},
+                model_version=model_version,
             )
         except Exception as exc:
             raise HTTPException(
@@ -101,12 +113,21 @@ def create_app() -> FastAPI:
         return response
 
     @application.post("/predict", response_model=PredictResponse)
-    def predict(payload: PredictRequest, request: Request) -> PredictResponse:
+    def predict(
+        payload: PredictRequest,
+        request: Request,
+        x_model_version: str | None = Header(default=None, alias="X-Model-Version"),
+    ) -> PredictResponse:
         service: JEPAService = request.app.state.jepa_service
         log_store: InferenceLogStore = request.app.state.log_store
 
         try:
-            result = service.predict(payload.observation, payload.action, payload.mc_samples)
+            result = service.predict(
+                payload.observation,
+                payload.action,
+                payload.mc_samples,
+                model_version=x_model_version,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -122,6 +143,7 @@ def create_app() -> FastAPI:
                 request_payload=payload.model_dump(),
                 response_payload=response.model_dump(),
                 metadata={"uncertainty": response.uncertainty},
+                model_version=str(result["model_version"]),
             )
         except Exception as exc:
             raise HTTPException(
