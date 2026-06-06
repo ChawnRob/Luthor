@@ -97,6 +97,32 @@ memory:
   gru_num_layers: 1
   compress_source: observation
 
+quotas:
+  free:
+    max_api_calls_per_day: 50
+    max_complex_tasks_per_month: 5
+    max_storage_mb: 10
+    endpoint_weights:
+      /embed: 1
+      /predict: 2
+      /active_learn: 5
+      /mcp/orchestrate: 5
+      /demo/full: 5
+      /tools/: 3
+      default: 1
+  pro:
+    max_api_calls_per_day: 10000
+    max_complex_tasks_per_month: 1000
+    max_storage_mb: 1024
+    endpoint_weights:
+      /embed: 1
+      /predict: 1
+      /active_learn: 3
+      /mcp/orchestrate: 3
+      /demo/full: 3
+      /tools/: 2
+      default: 1
+
 mcp:
   enabled: true
   tools:

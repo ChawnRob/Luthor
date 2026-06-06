@@ -1,0 +1,33 @@
+# LUTHOR dashboard — static React UI served by nginx
+FROM node:22-alpine AS build
+
+WORKDIR /app
+
+COPY website/package.json ./
+COPY website/patches ./patches/
+
+RUN npm install --no-audit --no-fund
+
+COPY website/ ./
+
+ARG VITE_API_URL=https://luthor.example.com
+ARG VITE_GRAFANA_URL=
+ARG VITE_EXPORT_TOKEN=
+ARG VITE_AUTH_REQUIRED=true
+
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_GRAFANA_URL=${VITE_GRAFANA_URL}
+ENV VITE_EXPORT_TOKEN=${VITE_EXPORT_TOKEN}
+ENV VITE_AUTH_REQUIRED=${VITE_AUTH_REQUIRED}
+
+RUN npm run build:ui
+
+FROM nginx:1.27-alpine
+
+COPY docker/nginx/ui.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist/public /usr/share/nginx/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1

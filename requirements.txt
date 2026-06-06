@@ -17,3 +17,4 @@ prometheus_client==0.21.0
 openai==1.51.0
 faster-whisper==1.0.3
 yt-dlp==2024.10.22
+PyJWT==2.9.0

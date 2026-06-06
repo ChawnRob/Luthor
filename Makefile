@@ -4,7 +4,7 @@ export PYTHONPATH := src
 API_HOST ?= 0.0.0.0
 API_PORT ?= 8080
 
-.PHONY: install demo active test run-api docker-up docker-down docker-logs dvc-repro benchmark-generalization
+.PHONY: install demo active test load-test run-api docker-up docker-down docker-logs dvc-repro benchmark-generalization
 
 install: $(VENV)/bin/python
 	$(VENV)/bin/pip install -r requirements.txt
@@ -21,6 +21,10 @@ active:
 
 test:
 	$(PYTHON) -m unittest discover -s tests -v
+
+load-test:
+	@echo "Requires: pip install locust && API running on :8080"
+	locust -f tests/locustfile.py --headless -u 5 -r 2 -t 30s --host http://localhost:8080
 
 run-api:
 	uvicorn luthor.api.main:app --host $(API_HOST) --port $(API_PORT) --reload

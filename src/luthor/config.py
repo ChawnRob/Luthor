@@ -149,6 +149,51 @@ class MCPConnectorConfig:
 
 
 @dataclass
+class QuotaTierLimits:
+    """Per-tier usage limits (freemium)."""
+    max_api_calls_per_day: int = 50
+    max_complex_tasks_per_month: int = 5
+    max_storage_mb: int = 10
+    endpoint_weights: dict[str, int] = field(
+        default_factory=lambda: {
+            "/embed": 1,
+            "/predict": 2,
+            "/active_learn": 5,
+            "/mcp/orchestrate": 5,
+            "/demo/full": 5,
+            "/tools/": 3,
+            "default": 1,
+        }
+    )
+
+    def weight_for_path(self, path: str) -> int:
+        for prefix, weight in self.endpoint_weights.items():
+            if prefix == "default":
+                continue
+            if path.startswith(prefix):
+                return weight
+        return int(self.endpoint_weights.get("default", 1))
+
+
+@dataclass
+class QuotasConfig:
+    """Quota limits by subscription tier."""
+    free: QuotaTierLimits = field(default_factory=QuotaTierLimits)
+    pro: QuotaTierLimits = field(
+        default_factory=lambda: QuotaTierLimits(
+            max_api_calls_per_day=10000,
+            max_complex_tasks_per_month=1000,
+            max_storage_mb=1024,
+        )
+    )
+
+    def limits_for(self, tier: str) -> QuotaTierLimits:
+        if tier == "pro":
+            return self.pro
+        return self.free
+
+
+@dataclass
 class MCPConfig:
     """MCP tool integration configuration."""
     enabled: bool = True
@@ -195,6 +240,7 @@ class LuthorConfig:
     gridworld: GridWorldConfig
     generalization: GeneralizationConfig
     mcp: MCPConfig = field(default_factory=MCPConfig)
+    quotas: QuotasConfig = field(default_factory=QuotasConfig)
     prompt_version: str = "v1"
     seed: int = 42
     debug: bool = False
@@ -211,6 +257,24 @@ class LuthorConfig:
         inventory_cfg = env_cfg.get("inventory", {})
         grid_cfg = params.get("gridworld", {})
         gen_cfg = params.get("generalization", {})
+        quotas_cfg = params.get("quotas", {})
+
+        def _quota_limits(raw: dict | None) -> QuotaTierLimits:
+            if not raw:
+                return QuotaTierLimits()
+            payload = dict(raw)
+            weights = payload.pop("endpoint_weights", None)
+            allowed = {k for k in QuotaTierLimits.__dataclass_fields__ if k != "endpoint_weights"}
+            limits = QuotaTierLimits(**{k: payload[k] for k in allowed if k in payload})
+            if weights:
+                limits.endpoint_weights = {**limits.endpoint_weights, **weights}
+            return limits
+
+        quotas = QuotasConfig(
+            free=_quota_limits(quotas_cfg.get("free")),
+            pro=_quota_limits(quotas_cfg.get("pro")) if quotas_cfg.get("pro") else QuotasConfig().pro,
+        )
+
         mcp_cfg = params.get("mcp", {})
         mcp_tools = mcp_cfg.get("tools", {})
 
@@ -263,6 +327,7 @@ class LuthorConfig:
             environment=environment,
             gridworld=gridworld,
             generalization=generalization,
+            quotas=quotas,
             mcp=MCPConfig(
                 enabled=bool(mcp_cfg.get("enabled", True)),
                 tools={
@@ -614,6 +679,23 @@ def _merge_params_into_config(config: LuthorConfig, params: dict) -> LuthorConfi
         inv = config.environment.inventory
         config.active_learning.input_dim = inv.num_products * 3
         config.active_learning.action_dim = inv.num_products
+
+    quotas_cfg = params.get("quotas", {})
+    if quotas_cfg:
+        if free_cfg := quotas_cfg.get("free"):
+            merged = {**config.quotas.free.__dict__, **free_cfg}
+            allowed = {k for k in QuotaTierLimits.__dataclass_fields__ if k != "endpoint_weights"}
+            free_limits = QuotaTierLimits(**{k: merged[k] for k in allowed})
+            if weights := free_cfg.get("endpoint_weights"):
+                free_limits.endpoint_weights = {**free_limits.endpoint_weights, **weights}
+            config.quotas.free = free_limits
+        if pro_cfg := quotas_cfg.get("pro"):
+            merged = {**config.quotas.pro.__dict__, **pro_cfg}
+            allowed = {k for k in QuotaTierLimits.__dataclass_fields__ if k != "endpoint_weights"}
+            pro_limits = QuotaTierLimits(**{k: merged[k] for k in allowed})
+            if weights := pro_cfg.get("endpoint_weights"):
+                pro_limits.endpoint_weights = {**pro_limits.endpoint_weights, **weights}
+            config.quotas.pro = pro_limits
 
     mcp_cfg = params.get("mcp", {})
     if mcp_cfg:

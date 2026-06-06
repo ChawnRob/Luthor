@@ -7,6 +7,7 @@ from typing import Any
 
 from luthor.llm_provider import LLMConfig, LLMInterface, LLMProvider, LLMProviderFactory
 from luthor.mcp.registry import MCPRegistry, get_mcp_registry
+from luthor.orchestrator_llm import ResilientOrchestratorLLM
 
 
 @dataclass
@@ -35,9 +36,10 @@ class MCPOrchestrator:
         self._llm = llm
 
     @property
-    def llm(self) -> LLMInterface:
+    def llm(self) -> ResilientOrchestratorLLM | LLMInterface:
         if self._llm is None:
-            self._llm = self._build_mistral_llm()
+            primary = self._build_mistral_llm()
+            self._llm = ResilientOrchestratorLLM(primary)
         return self._llm
 
     @staticmethod
