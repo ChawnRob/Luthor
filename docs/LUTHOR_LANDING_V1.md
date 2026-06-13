@@ -6,7 +6,7 @@
 >
 > **Objectif de compréhension (≤ 15 s)** : en arrivant sur la page, le visiteur doit saisir **(1)** ce qu'est LUTHOR, **(2)** pourquoi il existe, **(3)** où il va.
 >
-> **Positionnement** : LUTHOR est un **projet en construction avancée** (prototype + recherche), pas un produit fini. On expose une **vision** et un **état d'avancement honnête**, sans survendre.
+> **Positionnement** : LUTHOR est un **prototype de recherche** (« Research Prototype ») open source, **pas un produit fini**, **pas un chatbot**, et **pas un simple wrapper de LLM**. Le cœur est un **Agentic World Model** inspiré des principes JEPA / AMI ; les LLM ne sont qu'une **couche d'interface optionnelle**. On expose une **vision** et un **état d'avancement honnête**, sans survendre.
 
 ---
 
@@ -91,7 +91,7 @@ One-pager, scroll vertical. Ordre des sections :
 ```
 [≡]  L LUTHOR
 ─────────────
-// RESEARCH PROJECT — IN ACTIVE DEVELOPMENT
+// RESEARCH PROTOTYPE
 Agentic World Model
 LUTHOR
 
@@ -146,7 +146,7 @@ FOOTER  GitHub · Contact · Statut
 ### 4.2 Hero
 **Badge :**
 ```
-// RESEARCH PROJECT — IN ACTIVE DEVELOPMENT
+// RESEARCH PROTOTYPE
 ```
 **Eyebrow (au-dessus du titre) :**
 ```
@@ -251,20 +251,19 @@ acts — agents grounded in a model of the world rather than in text generation
 alone.
 
 We're inspired by research on Autonomous Machine Intelligence (AMI) and Joint
-Embedding Predictive Architectures (JEPA). Today, Luthor is an open prototype
-under active development. We're sharing the journey as we build it — one
-capability at a time.
+Embedding Predictive Architectures (JEPA). Today, Luthor is an open-source
+research prototype. We're sharing the journey as we build it — one capability
+at a time.
 ```
 
 ### 4.7 Footer
 ```
 LUTHOR — Agentic World Model
-An open research project · In active development
+An open-source Research Prototype
 
 Approach   → #approach
 GitHub     → github.com/ChawnRob/Luthor    ★ Star the repo
-License    → MIT   (à confirmer)
-Contact    → contact@luthor.org   (à confirmer)
+Contact    → contact@luthor.org
 
 © Luthor. Inspired by AMI / JEPA principles.
 ```
@@ -280,7 +279,7 @@ Contact    → contact@luthor.org   (à confirmer)
 ### 5.2 Hero
 **Badge :**
 ```
-// PROJET DE RECHERCHE — EN CONSTRUCTION AVANCÉE
+// PROTOTYPE DE RECHERCHE
 ```
 **Eyebrow (au-dessus du titre) :** `Agentic World Model`
 **Titre (H1) :** `LUTHOR`
@@ -378,19 +377,18 @@ dans la génération de texte.
 
 Nous nous inspirons des travaux sur l'Intelligence Machine Autonome (AMI) et les
 Joint Embedding Predictive Architectures (JEPA). Aujourd'hui, Luthor est un
-prototype open source en construction avancée. Nous partageons cette
-construction au fil de l'eau — une capacité à la fois.
+prototype de recherche open source. Nous partageons cette construction au fil
+de l'eau — une capacité à la fois.
 ```
 
 ### 5.7 Footer
 ```
 LUTHOR — Modèle du Monde Agentique
-Un projet de recherche ouvert · En construction avancée
+Un prototype de recherche open source
 
 Approche   → #approach
 GitHub     → github.com/ChawnRob/Luthor    ★ Star le repo
-Licence    → MIT   (à confirmer)
-Contact    → contact@luthor.org   (à confirmer)
+Contact    → contact@luthor.org
 
 © Luthor. Inspiré des principes AMI / JEPA.
 ```
@@ -400,12 +398,15 @@ Contact    → contact@luthor.org   (à confirmer)
 ## 6. Notes d'intégration
 
 - **Ancres** : `#approach` (Présentation), `#capabilities` / `#capacites`, `#roadmap`, `#vision`, `#contact`.
-- **Lien GitHub** : `https://github.com/ChawnRob/Luthor`.
-- **Contact** : `contact@luthor.org` *(placeholder — à confirmer)*.
-- **Séparation des domaines** : `luthor.org` = vitrine ; `app.luthor.org` = future application / API (Cloud Run). Ne pas exposer de lien `app.` tant que rien n'est en ligne.
+- **Lien GitHub** : `https://github.com/ChawnRob/Luthor` — **affiché publiquement** (validé). Repo public.
+- **Contact** : `contact@luthor.org` — **placeholder temporaire validé** (ne bloque pas la mise en ligne ; remplaçable plus tard par un formulaire Squarespace).
+- **Licence** : MIT **prévue**, mais le fichier `LICENSE` sera ajouté **plus tard, dans une PR dédiée** — donc **pas de mention de licence sur la landing** pour l'instant (on ne mélange pas).
+- **Statut affiché** : **« Research Prototype »** (et non « In Active Development »). Éviter toute impression de produit déjà disponible.
+- **Séparation des domaines** : `luthor.org` = vitrine. **`app.luthor.org` n'est PAS exposé** : aucun lien actif. Mention possible **uniquement** comme *futur workspace expérimental* (texte, sans lien cliquable).
+- **Langue** : **EN en version principale** ; **FR disponible plus bas dans la page ou via un sélecteur de langue**. Tagline `Understand. Predict. Plan. Act.` conservée en anglais dans les deux cas (signature).
 - **SEO** :
   - Titre : `LUTHOR — Agentic World Model`
-  - Description : `Luthor, an open Agentic World Model in active development: understand, predict, plan, act. Inspired by JEPA / AMI.`
+  - Description : `Luthor — an open-source Agentic World Model research prototype: understand, predict, plan, act. Inspired by JEPA / AMI. Not a chatbot.`
   - Image Open Graph : visuel sombre, logo + accent cyan.
 
 ---
@@ -415,7 +416,7 @@ Contact    → contact@luthor.org   (à confirmer)
 - ✅ **Aucune modification de code** : backend Python, JEPA, providers, Cloud Run et architecture restent intacts. Livraison = doc + maquettes.
 - ✅ **Mobile-first** et **style premium / recherche IA** (Meta FAIR).
 - ✅ **Pas de jargon marketing vide**, **pas de promesses fictives** : les capacités non livrées (Memory, Agents, items ◯ de la roadmap) sont explicitement présentées comme **en cours / planifiées**.
-- ✅ **LUTHOR = projet en construction avancée**, pas produit fini.
+- ✅ **LUTHOR = Research Prototype** (open source), pas produit fini, pas chatbot, pas wrapper de LLM.
 - ✅ **Vision claire** : Agentic World Model → understand, predict, plan, act.
 - ✅ **COCO / OpenChawn** : volontairement **absent** de cette vitrine (séparation stricte).
 
@@ -433,7 +434,7 @@ Relecture du document selon 4 profils : visiteur lambda, ingénieur Meta FAIR, i
 | 4 | Microcopie d'attente : « prototype today, not a product yet » | Visiteur / Dev |
 | 5 | CTA `Explore the vision` → `See how it works` (ancre `#approach`) | FAIR / Dev |
 | 6 | Ajout **« Who it's for »** (chercheurs, devs, curieux) | Investisseur |
-| 7 | Footer enrichi **open source** : licence (MIT, à confirmer), `★ Star the repo`, lien Approach | Dev |
+| 7 | Footer enrichi **open source** : `★ Star the repo`, lien Approach | Dev |
 | 8 | Wireframes + flux de lecture alignés sur le nouveau hero et l'ancre `#approach` | Tous |
 
 ### Top 5 risques de confusion (suivi)
@@ -443,10 +444,11 @@ Relecture du document selon 4 profils : visiteur lambda, ingénieur Meta FAIR, i
 4. CTA ambigu — *traité (#5)*.
 5. Jargon en tête de page — *traité (#1)*.
 
-### Décisions encore ouvertes (validation humaine requise)
-- **Email de contact** : `contact@luthor.org` reste un **placeholder** — à confirmer ou remplacer par un formulaire.
-- **Licence** : `MIT` indiquée *à confirmer* (le repo doit contenir un fichier `LICENSE`).
-- **Lien GitHub** : confirmer que le repo est **public** avant d'exposer le lien.
-- **Statut** : wording « en construction avancée / in active development » à valider.
-- **`app.luthor.org`** : aucun lien exposé pour l'instant (recommandé tant que rien n'est en ligne).
-- **Langue de la home V1** : EN principale recommandée (FR prête), tagline EN dans les deux cas.
+### Décisions validées (13 juin) — intégrées au document
+- **Email de contact** : `contact@luthor.org` conservé comme **placeholder temporaire** ; ne bloque pas la mise en ligne. ✅
+- **Licence** : MIT **prévue** ; fichier `LICENSE` ajouté **plus tard en PR dédiée** ; **pas de mention de licence sur la landing**. ✅
+- **Lien GitHub** : **affiché publiquement** vers `ChawnRob/Luthor`. ✅
+- **Statut** : **« Research Prototype »** (remplace « In Active Development »). ✅
+- **`app.luthor.org`** : **non exposé**, aucun lien actif ; mention possible seulement comme *futur workspace expérimental*. ✅
+- **Langue** : **EN principale**, **FR plus bas / via sélecteur** ; tagline EN conservée. ✅
+- **Positionnement** : pas un chatbot, pas un wrapper de LLM ; cœur = Agentic World Model (JEPA/AMI) ; LLM = couche d'interface optionnelle. ✅
