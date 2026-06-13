@@ -59,11 +59,12 @@ One-pager, scroll vertical. Ordre des sections :
 │                          Roadmap   GitHub     │
 ├─────────────────────────────────────────────┤
 │  1. HERO                                      │
-│     badge · LUTHOR · Agentic World Model      │
+│     badge · Agentic World Model · LUTHOR      │
+│     « plain subtitle » des 15 s               │
 │     Understand. Predict. Plan. Act.           │
-│     [Explore the vision] [View on GitHub]     │
+│     [See how it works] [View on GitHub]       │
 ├─────────────────────────────────────────────┤
-│  2. PRÉSENTATION                              │
+│  2. PRÉSENTATION / APPROACH (#approach)       │
 │     World Model · ≠ chatbot · pourquoi        │
 ├─────────────────────────────────────────────┤
 │  3. CAPACITÉS  (4 cartes)                     │
@@ -81,26 +82,28 @@ One-pager, scroll vertical. Ordre des sections :
 ```
 
 ### Flux de lecture (parcours cible en 15 s)
-1. **Hero** → « LUTHOR = Agentic World Model » + verbes `Understand / Predict / Plan / Act` → **(1) ce que c'est**.
-2. **Présentation** → différence avec un chatbot → **(2) pourquoi ça existe**.
+1. **Hero** → eyebrow « Agentic World Model » + **phrase en clair** + verbes `Understand / Predict / Plan / Act` → **(1) ce que c'est** (sans jargon).
+2. **Présentation / Approach** → différence avec un chatbot + « pour qui » → **(2) pourquoi ça existe**.
 3. **Capacités + Roadmap** → ce qui est fait / à venir → **(3) où ça va**.
-4. **Vision / CTA** → comment suivre ou contribuer.
+4. **Vision / CTA** → comment suivre ou contribuer (pas « utiliser »).
 
 ### Wireframe mobile (mobile-first)
 ```
 [≡]  L LUTHOR
 ─────────────
-// AGENTIC WORLD MODEL
-LUTHOR
+// RESEARCH PROJECT — IN ACTIVE DEVELOPMENT
 Agentic World Model
+LUTHOR
 
-Understand.
-Predict.
-Plan.
-Act.
+An AI that learns a model of the world —
+to predict, plan, and act.
 
-[ Explore the vision ]   (cyan, pleine largeur)
-[ View on GitHub      ]   (outline, pleine largeur)
+Understand. Predict. Plan. Act.
+
+A prototype today, not a product yet.
+
+[ See how it works ]   (cyan, pleine largeur)
+[ View on GitHub    ]   (outline, pleine largeur)
 ─────────────
 PRÉSENTATION (texte court)
 ─────────────
@@ -143,27 +146,33 @@ FOOTER  GitHub · Contact · Statut
 ### 4.2 Hero
 **Badge :**
 ```
-// AGENTIC WORLD MODEL — IN ACTIVE DEVELOPMENT
+// RESEARCH PROJECT — IN ACTIVE DEVELOPMENT
+```
+**Eyebrow (au-dessus du titre) :**
+```
+Agentic World Model
 ```
 **Titre (H1) :**
 ```
 LUTHOR
 ```
-**Sous-titre :**
+**Sous-titre (langage simple — la phrase des 15 secondes) :**
 ```
-Agentic World Model
+An AI that learns a model of the world — to predict, plan, and act,
+instead of just generating text.
 ```
-**Tagline (4 mots empilés, accent cyan) :**
+**Tagline (4 mots, accent cyan) :**
 ```
-Understand.
-Predict.
-Plan.
-Act.
+Understand.  Predict.  Plan.  Act.
+```
+**Microcopie d'attente (sous la tagline, petit, gris) :**
+```
+An open research project. A prototype today, not a product yet.
 ```
 **Boutons :**
 ```
-[ Explore the vision ]   → #vision
-[ View on GitHub ]       → https://github.com/ChawnRob/Luthor
+[ See how it works ]   → #approach
+[ View on GitHub ]     → https://github.com/ChawnRob/Luthor
 ```
 
 ### 4.3 Présentation
@@ -183,6 +192,12 @@ space, and using that to plan toward a goal.
 Why it matters: reasoning in this latent space aims for agents that are more
 coherent over time, more autonomous, and more compute-efficient than systems
 that must generate everything as text.
+
+Luthor's reasoning core is non-generative (JEPA). A language-model layer is an
+optional interface — not the brain.
+
+Who it's for: researchers, developers, and anyone curious about agentic AI and
+world models.
 ```
 
 ### 4.4 Capacités (4 cartes)
@@ -213,11 +228,11 @@ steps and execute them, correcting course along the way.
 ```
 What exists today, and what we're building next.
 ```
-**Foundations (done) :**
+**Foundations (today) :**
 ```
-✓  Architecture JEPA            — Open-source world-model prototype
-✓  Cloud Infrastructure         — Containerized deployment (Cloud Run)
-✓  Multi-Provider Foundation    — Provider-agnostic LLM layer
+✓  JEPA-based prototype       — Encoder · predictor · planner (open source)
+✓  Containerized deployment   — Runs on Cloud Run
+✓  Pluggable LLM layer        — Optional, provider-agnostic interface
 ```
 **Next (planned) :**
 ```
@@ -226,7 +241,7 @@ What exists today, and what we're building next.
 ◯  Agent Workspace              — Environment for autonomous agents
 ◯  Autonomous Tasks             — Goal decomposition and execution
 ```
-> Pas de dates. Les items ◯ sont présentés comme **planifiés**, pas livrés.
+> Pas de dates. Les ✓ sont des **briques de fondation** (le mot *prototype* reste visible), pas des fonctionnalités produit prêtes à l'emploi. Les ◯ sont **planifiés**, pas livrés.
 
 ### 4.6 Vision
 **Titre (H2) :** `Vision`
@@ -244,10 +259,12 @@ capability at a time.
 ### 4.7 Footer
 ```
 LUTHOR — Agentic World Model
+An open research project · In active development
 
-GitHub   → github.com/ChawnRob/Luthor
-Contact  → contact@luthor.org
-Status   → In active development
+Approach   → #approach
+GitHub     → github.com/ChawnRob/Luthor    ★ Star the repo
+License    → MIT   (à confirmer)
+Contact    → contact@luthor.org   (à confirmer)
 
 © Luthor. Inspired by AMI / JEPA principles.
 ```
@@ -263,23 +280,29 @@ Status   → In active development
 ### 5.2 Hero
 **Badge :**
 ```
-// MODÈLE DU MONDE AGENTIQUE — EN CONSTRUCTION AVANCÉE
+// PROJET DE RECHERCHE — EN CONSTRUCTION AVANCÉE
 ```
+**Eyebrow (au-dessus du titre) :** `Agentic World Model`
 **Titre (H1) :** `LUTHOR`
-**Sous-titre :** `Agentic World Model`
-**Tagline (empilée, accent cyan) :**
+**Sous-titre (langage simple — la phrase des 15 secondes) :**
 ```
-Understand.
-Predict.
-Plan.
-Act.
+Une IA qui apprend un modèle du monde — pour prédire, planifier et agir,
+au lieu de seulement générer du texte.
+```
+**Tagline (accent cyan) :**
+```
+Understand.  Predict.  Plan.  Act.
 ```
 > Recommandation : garder la tagline en anglais (signature du projet), même sur la version FR.
 
+**Microcopie d'attente (petit, gris) :**
+```
+Un projet de recherche ouvert. Un prototype aujourd'hui, pas encore un produit.
+```
 **Boutons :**
 ```
-[ Découvrir la vision ]   → #vision
-[ Voir sur GitHub ]       → https://github.com/ChawnRob/Luthor
+[ Voir comment ça marche ]   → #approach
+[ Voir sur GitHub ]          → https://github.com/ChawnRob/Luthor
 ```
 
 ### 5.3 Présentation
@@ -300,6 +323,12 @@ abstrait, et s'en servir pour planifier vers un objectif.
 Pourquoi c'est intéressant : raisonner dans cet espace latent vise des agents
 plus cohérents dans la durée, plus autonomes, et plus économes en calcul que des
 systèmes qui doivent tout produire sous forme de texte.
+
+Le cœur de raisonnement de Luthor est non génératif (JEPA). Une couche de modèle
+de langage est une interface optionnelle — pas le cerveau.
+
+Pour qui : chercheurs, développeurs, et toute personne curieuse de l'IA
+agentique et des modèles du monde.
 ```
 
 ### 5.4 Capacités (4 cartes)
@@ -325,11 +354,11 @@ objectif en étapes et les exécutent, en se corrigeant en cours de route.
 ### 5.5 Roadmap
 **Titre (H2) :** `Roadmap`
 **Intro :** `Ce qui existe aujourd'hui, et ce que nous construisons ensuite.`
-**Fondations (acquis) :**
+**Fondations (aujourd'hui) :**
 ```
-✓  Architecture JEPA            — Prototype open source du modèle du monde
-✓  Cloud Infrastructure         — Déploiement conteneurisé (Cloud Run)
-✓  Multi-Provider Foundation    — Couche LLM agnostique au fournisseur
+✓  Prototype basé sur JEPA      — Encodeur · prédicteur · planificateur (open source)
+✓  Déploiement conteneurisé     — Tourne sur Cloud Run
+✓  Couche LLM enfichable        — Interface optionnelle, agnostique au fournisseur
 ```
 **À venir (planifié) :**
 ```
@@ -338,6 +367,7 @@ objectif en étapes et les exécutent, en se corrigeant en cours de route.
 ◯  Agent Workspace              — Environnement pour agents autonomes
 ◯  Autonomous Tasks             — Décomposition et exécution d'objectifs
 ```
+> Les ✓ sont des **briques de fondation** (le mot *prototype* reste visible), pas des fonctionnalités produit. Les ◯ sont **planifiés**, pas livrés.
 
 ### 5.6 Vision
 **Titre (H2) :** `Vision`
@@ -355,10 +385,12 @@ construction au fil de l'eau — une capacité à la fois.
 ### 5.7 Footer
 ```
 LUTHOR — Modèle du Monde Agentique
+Un projet de recherche ouvert · En construction avancée
 
-GitHub   → github.com/ChawnRob/Luthor
-Contact  → contact@luthor.org
-Statut   → En construction avancée
+Approche   → #approach
+GitHub     → github.com/ChawnRob/Luthor    ★ Star le repo
+Licence    → MIT   (à confirmer)
+Contact    → contact@luthor.org   (à confirmer)
 
 © Luthor. Inspiré des principes AMI / JEPA.
 ```
@@ -367,7 +399,7 @@ Statut   → En construction avancée
 
 ## 6. Notes d'intégration
 
-- **Ancres** : `#vision`, `#capabilities` / `#capacites`, `#roadmap`, `#contact`.
+- **Ancres** : `#approach` (Présentation), `#capabilities` / `#capacites`, `#roadmap`, `#vision`, `#contact`.
 - **Lien GitHub** : `https://github.com/ChawnRob/Luthor`.
 - **Contact** : `contact@luthor.org` *(placeholder — à confirmer)*.
 - **Séparation des domaines** : `luthor.org` = vitrine ; `app.luthor.org` = future application / API (Cloud Run). Ne pas exposer de lien `app.` tant que rien n'est en ligne.
@@ -386,3 +418,35 @@ Statut   → En construction avancée
 - ✅ **LUTHOR = projet en construction avancée**, pas produit fini.
 - ✅ **Vision claire** : Agentic World Model → understand, predict, plan, act.
 - ✅ **COCO / OpenChawn** : volontairement **absent** de cette vitrine (séparation stricte).
+
+---
+
+## 8. Journal de révision — Review Pass (4 profils)
+
+Relecture du document selon 4 profils : visiteur lambda, ingénieur Meta FAIR, investisseur IA, développeur open-source. Synthèse des correctifs **appliqués dans ce document** (aucun merge effectué) :
+
+| # | Correctif appliqué | Profil servi |
+| :--- | :--- | :--- |
+| 1 | Sous-titre hero **en langage simple** (phrase des 15 s) ; `Agentic World Model` repassé en *eyebrow* | Visiteur |
+| 2 | Clarification **world model ≠ LLM** (cœur non génératif JEPA ; couche LLM = interface optionnelle) | FAIR |
+| 3 | Roadmap requalifiée : `JEPA-based prototype`, `Containerized deployment`, `Pluggable LLM layer` (mot *prototype* conservé) | FAIR / Dev |
+| 4 | Microcopie d'attente : « prototype today, not a product yet » | Visiteur / Dev |
+| 5 | CTA `Explore the vision` → `See how it works` (ancre `#approach`) | FAIR / Dev |
+| 6 | Ajout **« Who it's for »** (chercheurs, devs, curieux) | Investisseur |
+| 7 | Footer enrichi **open source** : licence (MIT, à confirmer), `★ Star the repo`, lien Approach | Dev |
+| 8 | Wireframes + flux de lecture alignés sur le nouveau hero et l'ancre `#approach` | Tous |
+
+### Top 5 risques de confusion (suivi)
+1. World model vs LLM provider — *traité (#2, #3)*.
+2. « Agents / Autonomous Tasks » perçu comme hype — *atténué (#1, #4)*.
+3. Roadmap ✓ = produit prêt ? — *traité (#3, #4)*.
+4. CTA ambigu — *traité (#5)*.
+5. Jargon en tête de page — *traité (#1)*.
+
+### Décisions encore ouvertes (validation humaine requise)
+- **Email de contact** : `contact@luthor.org` reste un **placeholder** — à confirmer ou remplacer par un formulaire.
+- **Licence** : `MIT` indiquée *à confirmer* (le repo doit contenir un fichier `LICENSE`).
+- **Lien GitHub** : confirmer que le repo est **public** avant d'exposer le lien.
+- **Statut** : wording « en construction avancée / in active development » à valider.
+- **`app.luthor.org`** : aucun lien exposé pour l'instant (recommandé tant que rien n'est en ligne).
+- **Langue de la home V1** : EN principale recommandée (FR prête), tagline EN dans les deux cas.
